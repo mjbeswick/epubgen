@@ -1,0 +1,12 @@
+body { font-family: "Times New Roman", Times, serif; line-height: 1.5; }
+h1, h2, h3 { font-family: Arial, sans-serif; color: #1a3a6c; }
+h1 { font-size: 1.8em; }
+h2 { font-size: 1.35em; border-bottom: 1px solid #1a3a6c; padding-bottom: 0.15em; }
+h3 { font-size: 1.15em; }
+code { font-family: "Courier New", monospace; font-size: 0.92em; background: #f3f5f9; padding: 0 3px; }
+pre { background: #f3f5f9; padding: 0.7em; border: 1px solid #ccd; overflow-x: auto; }
+pre code { background: transparent; padding: 0; }
+blockquote { border-left: 3px solid #1a3a6c; background: #fafbfd; margin: 1em 0; padding: 0.5em 1em; }
+table { border-collapse: collapse; margin: 1em 0; width: 100%; }
+th, td { border: 1px solid #aab; padding: 0.4em 0.7em; text-align: left; }
+body.kindle pre { font-size: 0.85em; }

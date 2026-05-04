@@ -1,0 +1,10 @@
+body { font-family: "Trebuchet MS", "Helvetica Neue", Arial, sans-serif; line-height: 1.6; }
+h1, h2, h3 { font-family: "Trebuchet MS", sans-serif; color: #f8b400; }
+h1 { font-size: 1.9em; color: #000; background: #f8b400; padding: 0.3em 0.5em; }
+h2 { font-size: 1.35em; color: #000; border-left: 6px solid #f8b400; padding-left: 0.5em; }
+code { font-family: Menlo, Consolas, monospace; font-size: 0.92em; background: #fff8e1; padding: 0 3px; }
+pre { background: #fff8e1; padding: 0.7em; border: 1px dashed #f8b400; overflow-x: auto; }
+pre code { background: transparent; padding: 0; }
+blockquote { background: #fffbea; border-left: 4px solid #f8b400; padding: 0.6em 1em; margin: 1em 0; }
+blockquote strong:first-child { color: #b07700; }
+body.kindle pre { font-size: 0.85em; }

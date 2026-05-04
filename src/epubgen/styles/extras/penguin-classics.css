@@ -1,0 +1,6 @@
+body { font-family: "Garamond", "Georgia", serif; line-height: 1.7; text-align: justify; text-indent: 1.2em; }
+p { margin: 0; }
+h1, h2 { font-family: "Garamond", serif; text-align: center; text-indent: 0; font-weight: normal; letter-spacing: 0.06em; }
+h1 { font-size: 1.5em; margin: 2em 0 1em; }
+h2 { font-size: 1.2em; }
+em { font-style: italic; }
