@@ -29,6 +29,16 @@ class Outline(BaseModel):
     chapters: list[Chapter] = Field(min_length=3, max_length=40)
 
 
+class RefinedTopic(BaseModel):
+    title: str = Field(min_length=3, max_length=120)
+    subtitle: str = Field(min_length=5, max_length=180)
+    angle: str = Field(min_length=10, max_length=240)
+
+
+class TopicSuggestions(BaseModel):
+    suggestions: list[RefinedTopic] = Field(min_length=3, max_length=3)
+
+
 class Options(BaseModel):
     topic: str
     style: str = "oreilly"
@@ -42,6 +52,8 @@ class Options(BaseModel):
     no_cover: bool = False
     cover_prompt: str | None = None
     author: str = "epubgen"
+    preferred_title: str | None = None
+    preferred_subtitle: str | None = None
     metadata: dict[str, str] = Field(default_factory=dict)
     force: bool = False
     dry_run: bool = False
@@ -57,4 +69,6 @@ class Options(BaseModel):
             "model": self.model,
             "kindle": self.kindle,
             "author": self.author,
+            "preferred_title": self.preferred_title,
+            "preferred_subtitle": self.preferred_subtitle,
         }

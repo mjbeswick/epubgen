@@ -61,11 +61,20 @@ def build_outline_messages(style: Style, opts: Options) -> dict[str, Any]:
         if opts.chapters
         else "Choose a chapter count appropriate to the topic (typically 8–14)."
     )
+    title_clause = ""
+    if opts.preferred_title:
+        title_clause = (
+            f"\nUse exactly this title: {opts.preferred_title!r}.\n"
+            f"Use exactly this subtitle: {opts.preferred_subtitle!r}."
+            if opts.preferred_subtitle
+            else f"\nUse exactly this title: {opts.preferred_title!r}."
+        )
     user = (
         f"Topic: {opts.topic}\n"
         f"Style: {style.name}\n"
         f"Target words per chapter: ~{opts.words}\n"
-        f"{chapters_clause}\n"
+        f"{chapters_clause}"
+        f"{title_clause}\n"
         "Each chapter must include 3–8 beats and 0–6 code_examples "
         "(short natural-language descriptions of snippets to include).\n"
         "Use the emit_outline tool to return the outline."

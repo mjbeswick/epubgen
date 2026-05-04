@@ -15,6 +15,8 @@ DEFAULT_NAMES = (
     "nostarch",
     "apress",
     "for-dummies",
+    "cheatsheet",
+    "pocket-reference",
 )
 EXTRA_NAMES = ("academic", "penguin-classics")
 
@@ -25,6 +27,8 @@ ONELINERS = {
     "nostarch": "Build something. The book is a guided project.",
     "apress": "Reference-thorough; closer to a manual.",
     "for-dummies": "Friendly, icon-heavy, zero assumed knowledge.",
+    "cheatsheet": "Telegraphic cards — scan, don't read. Tables and snippets.",
+    "pocket-reference": "Manual-style entries: synopsis, params, example, see-also.",
     "academic": "Formal, citation-aware, structured argumentation.",
     "penguin-classics": "Literary; long-form prose. (Off-genre for tech books.)",
 }

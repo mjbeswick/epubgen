@@ -16,6 +16,8 @@ PALETTES = {
     "nostarch": ("#111111", "#fafafa"),
     "apress": ("#1a3a6c", "#f3f5f9"),
     "for-dummies": ("#f8b400", "#000000"),
+    "cheatsheet": ("#00897b", "#f0f4f3"),
+    "pocket-reference": ("#5d4037", "#f5f1ec"),
     "academic": ("#222222", "#fafafa"),
     "penguin-classics": ("#ea5b3c", "#f6efde"),
 }

@@ -1,0 +1,14 @@
+body { font-family: "Charter", Georgia, serif; line-height: 1.5; font-size: 0.95em; }
+h1 { font-size: 1.7em; color: #5d4037; border-bottom: 2px solid #5d4037; padding-bottom: 0.2em; }
+h2 { font-size: 1.25em; color: #3e2723; font-family: "Source Code Pro", Menlo, monospace; margin-top: 1.4em; }
+h3 { font-size: 1.05em; color: #5d4037; }
+strong { color: #3e2723; }
+code { font-family: "Source Code Pro", Menlo, monospace; font-size: 0.9em; background: #f5f1ec; padding: 0 3px; }
+pre { background: #f5f1ec; padding: 0.5em 0.7em; border-left: 3px solid #5d4037; overflow-x: auto; font-size: 0.88em; }
+pre code { background: transparent; padding: 0; }
+table { border-collapse: collapse; margin: 0.6em 0; font-size: 0.9em; width: 100%; }
+th, td { border: 1px solid #d7ccc8; padding: 0.3em 0.6em; text-align: left; vertical-align: top; }
+th { background: #f5f1ec; font-family: sans-serif; font-size: 0.85em; }
+blockquote { border-left: 3px solid #5d4037; background: #fbf7f3; margin: 0.6em 0; padding: 0.4em 0.8em; }
+ul { margin: 0.3em 0 0.6em 1.4em; }
+body.kindle pre { font-size: 0.82em; }

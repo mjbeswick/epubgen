@@ -1,0 +1,15 @@
+body { font-family: "Helvetica Neue", Arial, sans-serif; line-height: 1.4; font-size: 0.95em; }
+h1 { font-size: 1.6em; color: #fff; background: #222; padding: 0.4em 0.6em; margin: 1em 0 0.6em; }
+h2 { font-size: 1.15em; color: #222; border-bottom: 2px solid #00897b; padding-bottom: 0.15em; margin-top: 1.4em; }
+h3 { font-size: 1em; color: #00897b; margin-top: 0.8em; }
+p { margin: 0.4em 0; }
+code { font-family: "Source Code Pro", Menlo, monospace; font-size: 0.9em; background: #f0f4f3; padding: 0 3px; }
+pre { background: #f0f4f3; padding: 0.5em 0.7em; border-left: 3px solid #00897b; overflow-x: auto; font-size: 0.88em; line-height: 1.35; }
+pre code { background: transparent; padding: 0; }
+blockquote { border-left: 3px solid #d97706; background: #fff8ed; margin: 0.5em 0; padding: 0.3em 0.7em; font-size: 0.9em; }
+blockquote strong:first-child { color: #d97706; }
+table { border-collapse: collapse; margin: 0.6em 0; font-size: 0.9em; width: 100%; }
+th, td { border: 1px solid #ccc; padding: 0.25em 0.5em; text-align: left; }
+th { background: #f0f4f3; }
+ul, ol { margin: 0.3em 0 0.6em 1.4em; }
+body.kindle pre { font-size: 0.82em; }

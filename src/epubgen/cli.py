@@ -75,11 +75,28 @@ def generate(
     cover_prompt: Annotated[str | None, typer.Option("--cover-prompt")] = None,
     author: Annotated[str, typer.Option("--author")] = "epubgen",
     force: Annotated[bool, typer.Option("--force", help="Override options.json mismatch")] = False,
+    refine: Annotated[
+        bool, typer.Option("--refine", help="Interactively refine title/subtitle (TTY required)")
+    ] = False,
     dry_run: Annotated[bool, typer.Option("--dry-run")] = False,
     verbose: Annotated[bool, typer.Option("--verbose", "-v")] = False,
 ) -> None:
     """Generate an EPUB from a topic."""
     out_path = out or Path(f"./{slugify(topic)}.epub")
+    preferred_title = None
+    preferred_subtitle = None
+    if refine:
+        if not sys.stdin.isatty():
+            typer.secho("--refine requires a TTY", fg=typer.colors.RED, err=True)
+            raise typer.Exit(EXIT_USER)
+        from epubgen.wizard import _interactive_refine
+
+        chosen = _interactive_refine(style, topic, model=model)
+        if chosen is not None:
+            preferred_title = chosen.title
+            preferred_subtitle = chosen.subtitle
+            if out is None:
+                out_path = Path(f"./{slugify(chosen.title)}.epub")
     opts = Options(
         topic=topic,
         style=style,
@@ -93,6 +110,8 @@ def generate(
         no_cover=no_cover,
         cover_prompt=cover_prompt,
         author=author,
+        preferred_title=preferred_title,
+        preferred_subtitle=preferred_subtitle,
         force=force,
         dry_run=dry_run,
         verbose=verbose,
