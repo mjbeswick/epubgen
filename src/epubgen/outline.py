@@ -8,10 +8,13 @@ from pydantic import ValidationError
 
 from epubgen.anthropic_client import create_message
 from epubgen.errors import ApiError, OutlineError
+from epubgen.logsetup import get_logger
 from epubgen.prompts.outline import build_outline_messages, build_repair_messages
 from epubgen.schema import Options, Outline
 from epubgen.styles import Style
 from epubgen.workdir import atomic_write_text
+
+log = get_logger("outline")
 
 
 def _extract_tool_input(response: Any) -> dict[str, Any]:
@@ -27,13 +30,17 @@ async def _call_outline(model: str, payload: dict[str, Any]) -> dict[str, Any]:
 
 
 async def generate_outline(style: Style, opts: Options) -> Outline:
+    log.info("requesting outline from model")
     payload = build_outline_messages(style, opts)
     raw = await _call_outline(opts.model, payload)
     raw["topic"] = opts.topic
     raw["style"] = style.name
     try:
-        return Outline.model_validate(raw)
+        outline = Outline.model_validate(raw)
+        log.info("outline validated on first try (%d chapters)", len(outline.chapters))
+        return outline
     except ValidationError as first_err:
+        log.warning("outline failed validation, requesting repair: %s", first_err)
         repair_payload = build_repair_messages(
             style, opts, json.dumps(raw, indent=2), str(first_err)
         )

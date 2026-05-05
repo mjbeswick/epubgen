@@ -15,6 +15,7 @@ from epubgen.errors import (
     OutlineError,
     PandocError,
 )
+from epubgen.logsetup import configure_logging, get_logger
 from epubgen.schema import Options
 from epubgen.styles import list_all_styles, load_style
 from epubgen.workdir import default_workdir, slugify
@@ -35,26 +36,38 @@ EXIT_OUTLINE = 5
 
 
 def _run(opts: Options) -> None:
+    log = get_logger("cli")
+    log.debug("resolved options: %s", opts.model_dump_json())
     try:
         out = pipeline.run(opts)
         typer.secho(f"✓ wrote {out}", fg=typer.colors.GREEN, err=True)
     except ConfigError as e:
+        log.error("config error: %s", e, exc_info=True)
         typer.secho(f"config: {e}", fg=typer.colors.RED, err=True)
         raise typer.Exit(EXIT_USER) from e
     except OutlineError as e:
+        log.error("outline error: %s", e, exc_info=True)
         typer.secho(f"outline: {e}", fg=typer.colors.RED, err=True)
         raise typer.Exit(EXIT_OUTLINE) from e
     except ApiError as e:
+        log.error("api error: %s", e, exc_info=True)
         typer.secho(f"api: {e}", fg=typer.colors.RED, err=True)
         raise typer.Exit(EXIT_API) from e
     except PandocError as e:
+        log.error("pandoc error: %s", e, exc_info=True)
         typer.secho(f"pandoc: {e}", fg=typer.colors.RED, err=True)
         raise typer.Exit(EXIT_PANDOC) from e
     except FsError as e:
+        log.error("fs error: %s", e, exc_info=True)
         typer.secho(f"fs: {e}", fg=typer.colors.RED, err=True)
         raise typer.Exit(EXIT_FS) from e
     except EpubgenError as e:
+        log.error("error: %s", e, exc_info=True)
         typer.secho(f"error: {e}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(EXIT_USER) from e
+    except Exception as e:
+        log.exception("unexpected error")
+        typer.secho(f"unexpected: {type(e).__name__}: {e}", fg=typer.colors.RED, err=True)
         raise typer.Exit(EXIT_USER) from e
 
 
@@ -80,8 +93,13 @@ def generate(
     ] = False,
     dry_run: Annotated[bool, typer.Option("--dry-run")] = False,
     verbose: Annotated[bool, typer.Option("--verbose", "-v")] = False,
+    log_file: Annotated[
+        Path | None, typer.Option("--log-file", help="Write a debug log to this file")
+    ] = None,
 ) -> None:
     """Generate an EPUB from a topic."""
+    configure_logging(verbose=verbose, log_file=log_file)
+    get_logger("cli").info("epubgen generate: topic=%r style=%s", topic, style)
     out_path = out or Path(f"./{slugify(topic)}.epub")
     preferred_title = None
     preferred_subtitle = None
@@ -123,8 +141,12 @@ def generate(
 
 
 @app.command()
-def wizard() -> None:
+def wizard(
+    verbose: Annotated[bool, typer.Option("--verbose", "-v")] = False,
+    log_file: Annotated[Path | None, typer.Option("--log-file")] = None,
+) -> None:
     """Interactive prompt-driven generation."""
+    configure_logging(verbose=verbose, log_file=log_file)
     from epubgen.wizard import run_wizard
 
     opts = run_wizard()
@@ -138,8 +160,11 @@ def wizard() -> None:
 def resume(
     workdir: Annotated[Path, typer.Argument(help="Work dir of an interrupted run")],
     out: Annotated[Path | None, typer.Option("--out", "-o")] = None,
+    verbose: Annotated[bool, typer.Option("--verbose", "-v")] = False,
+    log_file: Annotated[Path | None, typer.Option("--log-file")] = None,
 ) -> None:
     """Resume an interrupted run from its workdir."""
+    configure_logging(verbose=verbose, log_file=log_file)
     import json
 
     options_path = workdir / "options.json"
@@ -172,6 +197,7 @@ def _root(ctx: typer.Context) -> None:
         typer.echo(ctx.get_help())
         raise typer.Exit(EXIT_USER)
     # Bare invocation in a TTY: drop into the wizard.
+    configure_logging(verbose=False, log_file=None)
     from epubgen.wizard import run_wizard
 
     opts = run_wizard()

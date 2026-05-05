@@ -7,9 +7,12 @@ from pathlib import Path
 import yaml
 
 from epubgen.errors import PandocError
+from epubgen.logsetup import get_logger
 from epubgen.schema import Options, Outline
 from epubgen.styles import Style
 from epubgen.workdir import atomic_write_text, chapter_path
+
+log = get_logger("assemble")
 
 
 def has_pandoc() -> bool:
@@ -99,15 +102,19 @@ def assemble(
         chapter_files=chapter_files,
         kindle=opts.kindle,
     )
+    log.debug("pandoc argv: %s", args)
     result = subprocess.run(args, capture_output=True, text=True)
-    log = workdir / "assembled.log"
+    log_path = workdir / "assembled.log"
     atomic_write_text(
-        log,
+        log_path,
         f"$ {' '.join(args)}\n\nSTDOUT:\n{result.stdout}\n\nSTDERR:\n{result.stderr}\n",
     )
+    if result.stderr:
+        log.debug("pandoc stderr:\n%s", result.stderr)
     if result.returncode != 0:
         tail = (result.stderr or "").strip().splitlines()[-20:]
         raise PandocError(f"pandoc exited {result.returncode}:\n" + "\n".join(tail))
+    log.info("pandoc ok: %s", opts.out)
     return opts.out
 
 
