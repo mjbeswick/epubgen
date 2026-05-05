@@ -44,7 +44,7 @@ def _check_pandoc() -> Check:
         return Check(
             "pandoc",
             FAIL,
-            "not on PATH (try: brew install pandoc)",
+            "not on PATH (install: brew install pandoc / apt install pandoc)",
             fatal=True,
         )
     return Check("pandoc", OK, path)

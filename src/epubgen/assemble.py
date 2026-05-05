@@ -50,21 +50,15 @@ def write_css(style: Style, workdir: Path) -> Path:
     return path
 
 
-def build_pandoc_args(
+def build_pandoc_extra_args(
     *,
-    out: Path,
     metadata_file: Path,
     css: Path,
     cover: Path | None,
-    chapter_files: list[Path],
     kindle: bool,
 ) -> list[str]:
     highlight = "monochrome" if kindle else "pygments"
     args = [
-        "pandoc",
-        "--from=markdown",
-        "--to=epub3",
-        f"--output={out}",
         f"--metadata-file={metadata_file}",
         f"--css={css}",
         "--toc",
@@ -74,8 +68,24 @@ def build_pandoc_args(
     ]
     if cover is not None:
         args.append(f"--epub-cover-image={cover}")
-    args.extend(str(p) for p in chapter_files)
     return args
+
+
+def build_pandoc_argv(
+    *,
+    out: Path,
+    extra_args: list[str],
+    chapter_files: list[Path],
+) -> list[str]:
+    argv = [
+        "pandoc",
+        "--from=markdown",
+        "--to=epub3",
+        f"--output={out}",
+        *extra_args,
+    ]
+    argv.extend(str(p) for p in chapter_files)
+    return argv
 
 
 def assemble(
@@ -96,20 +106,16 @@ def assemble(
         raise PandocError(f"missing chapter files: {missing}")
 
     opts.out.parent.mkdir(parents=True, exist_ok=True)
-    args = build_pandoc_args(
-        out=opts.out,
-        metadata_file=metadata_file,
-        css=css,
-        cover=cover,
-        chapter_files=chapter_files,
-        kindle=opts.kindle,
+    extra_args = build_pandoc_extra_args(
+        metadata_file=metadata_file, css=css, cover=cover, kindle=opts.kindle
     )
-    log.debug("pandoc argv: %s", args)
-    result = subprocess.run(args, capture_output=True, text=True)
+    argv = build_pandoc_argv(out=opts.out, extra_args=extra_args, chapter_files=chapter_files)
+    log.debug("pandoc argv: %s", argv)
+    result = subprocess.run(argv, capture_output=True, text=True)
     log_path = workdir / "assembled.log"
     atomic_write_text(
         log_path,
-        f"$ {' '.join(args)}\n\nSTDOUT:\n{result.stdout}\n\nSTDERR:\n{result.stderr}\n",
+        f"$ {' '.join(argv)}\n\nSTDOUT:\n{result.stdout}\n\nSTDERR:\n{result.stderr}\n",
     )
     if result.stderr:
         log.debug("pandoc stderr:\n%s", result.stderr)
