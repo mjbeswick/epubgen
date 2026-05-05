@@ -65,6 +65,7 @@ def build_pandoc_extra_args(
         "--toc-depth=2",
         "--split-level=1",
         f"--highlight-style={highlight}",
+        "--mathml",
     ]
     if cover is not None:
         args.append(f"--epub-cover-image={cover}")

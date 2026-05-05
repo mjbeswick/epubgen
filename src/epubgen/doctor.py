@@ -72,6 +72,18 @@ def _check_mmdc() -> Check:
     return Check("mmdc (mermaid-cli)", OK, path)
 
 
+def _check_vl_convert() -> Check:
+    try:
+        import vl_convert  # noqa: F401
+    except ImportError:
+        return Check(
+            "vl-convert (charts)",
+            WARN,
+            "not installed (optional; vega-lite charts will be skipped)",
+        )
+    return Check("vl-convert (charts)", OK, "available")
+
+
 def _check_openai_key() -> Check:
     key = os.environ.get("OPENAI_API_KEY")
     if not key:
@@ -89,6 +101,7 @@ def run_checks() -> list[Check]:
         _check_anthropic_key(),
         _check_pandoc(),
         _check_mmdc(),
+        _check_vl_convert(),
         _check_kindlepreviewer(),
         _check_openai_key(),
     ]

@@ -56,6 +56,11 @@ OUTLINE_TOOL = {
                             "items": {"type": "string"},
                             "maxItems": 10,
                         },
+                        "charts": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "maxItems": 10,
+                        },
                         "word_target": {"type": "integer", "minimum": 200},
                     },
                 },
@@ -93,6 +98,10 @@ def build_outline_messages(style: Style, opts: Options) -> dict[str, Any]:
         "- 0–3 diagrams: short descriptions of figures that aid understanding "
         "(e.g. 'sequence diagram of the request lifecycle', 'class hierarchy', "
         "'state machine'). Diagrams will be rendered from Mermaid syntax.\n"
+        "- 0–3 charts: short descriptions of data visualizations "
+        "(e.g. 'histogram of latency p50/p95/p99', 'memory growth over time', "
+        "'comparison bar chart of three approaches'). Charts will be rendered "
+        "from Vega-Lite JSON.\n"
         "Use the emit_outline tool to return the outline."
     )
     return {

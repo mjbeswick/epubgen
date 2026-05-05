@@ -45,6 +45,7 @@ def test_pandoc_args_default_highlight():
     assert not any("epub-cover" in a for a in args)
     assert "--toc" in args
     assert "--metadata-file=/tmp/m.yaml" in args
+    assert "--mathml" in args
 
 
 def test_pandoc_args_kindle_switches_highlight_and_includes_cover():

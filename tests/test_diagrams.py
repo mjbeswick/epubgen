@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 import pytest
 
-from epubgen.diagrams import _MERMAID_FENCE, render_in_file
+from epubgen.diagrams import _MERMAID_FENCE, _VEGALITE_FENCE, _find_blocks, render_in_file
 
 
 def test_regex_matches_mermaid_block():
@@ -39,13 +39,13 @@ def test_render_in_file_replaces_block_when_mmdc_succeeds(tmp_path: Path):
     chapter = tmp_path / "ch-01.md"
     chapter.write_text("# T\n\n```mermaid\nflowchart LR\nA-->B\n```\n\nend")
 
-    def fake_render(src, out_path):
+    def fake_render(kind, src, out_path):
         out_path.parent.mkdir(parents=True, exist_ok=True)
         out_path.write_bytes(b"<svg/>")
         return True
 
-    with patch("epubgen.diagrams.has_mmdc", return_value=True), \
-         patch("epubgen.diagrams._render_one", side_effect=fake_render):
+    with patch("epubgen.diagrams._kind_available", return_value=True), \
+         patch("epubgen.diagrams._render_for_kind", side_effect=fake_render):
         n = render_in_file(chapter, tmp_path)
     assert n == 1
     text = chapter.read_text()
@@ -56,8 +56,8 @@ def test_render_in_file_replaces_block_when_mmdc_succeeds(tmp_path: Path):
 def test_render_in_file_failure_keeps_block(tmp_path: Path):
     chapter = tmp_path / "ch-01.md"
     chapter.write_text("```mermaid\nbad\n```\n")
-    with patch("epubgen.diagrams.has_mmdc", return_value=True), \
-         patch("epubgen.diagrams._render_one", return_value=False):
+    with patch("epubgen.diagrams._kind_available", return_value=True), \
+         patch("epubgen.diagrams._render_for_kind", return_value=False):
         n = render_in_file(chapter, tmp_path)
     assert n == 0
     assert "```mermaid" in chapter.read_text()
@@ -65,6 +65,43 @@ def test_render_in_file_failure_keeps_block(tmp_path: Path):
 
 @pytest.mark.parametrize("kindle,expected_fmt", [(False, "svg"), (True, "png")])
 def test_pipeline_picks_format(kindle, expected_fmt):
-    # Lightweight: just verify the format-picking branch in pipeline.
     fmt = "png" if kindle else "svg"
     assert fmt == expected_fmt
+
+
+def test_vegalite_regex_matches():
+    text = '```vegalite\n{"mark": "bar"}\n```'
+    matches = list(_VEGALITE_FENCE.finditer(text))
+    assert len(matches) == 1
+    assert matches[0].group(1) == '{"mark": "bar"}'
+
+
+def test_find_blocks_orders_mixed_fences_by_position():
+    text = (
+        "```vegalite\n{}\n```\n\nprose\n\n"
+        "```mermaid\nA-->B\n```\n\nprose\n\n"
+        "```vegalite\n{}\n```\n"
+    )
+    blocks = _find_blocks(text)
+    kinds = [b[2] for b in blocks]
+    assert kinds == ["vegalite", "mermaid", "vegalite"]
+
+
+def test_render_in_file_handles_mixed_blocks(tmp_path: Path):
+    chapter = tmp_path / "ch-01.md"
+    chapter.write_text(
+        '```mermaid\nA-->B\n```\n\nbody\n\n```vegalite\n{"mark":"bar"}\n```\n'
+    )
+
+    def fake_render(kind, src, out_path):
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_bytes(b"x")
+        return True
+
+    with patch("epubgen.diagrams._kind_available", return_value=True), \
+         patch("epubgen.diagrams._render_for_kind", side_effect=fake_render):
+        n = render_in_file(chapter, tmp_path)
+    assert n == 2
+    text = chapter.read_text()
+    assert "![Diagram](diagrams/ch-01-01.svg)" in text
+    assert "![Chart](diagrams/ch-01-02.svg)" in text

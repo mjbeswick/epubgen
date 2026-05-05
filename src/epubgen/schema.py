@@ -19,6 +19,7 @@ class Chapter(BaseModel):
     code_examples: list[str] = Field(default_factory=list, max_length=20)
     tables: list[str] = Field(default_factory=list, max_length=10)
     diagrams: list[str] = Field(default_factory=list, max_length=10)
+    charts: list[str] = Field(default_factory=list, max_length=10)
     word_target: int = Field(gt=0)
 
 
