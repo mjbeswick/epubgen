@@ -17,9 +17,11 @@ def build_chapter_messages(
 ) -> dict[str, Any]:
     beats = "\n".join(f"- {b.summary}" for b in chapter.beats)
     code = "\n".join(f"- {c}" for c in chapter.code_examples) or "(none)"
+    tables = "\n".join(f"- {t}" for t in chapter.tables) or "(none)"
+    diagrams = "\n".join(f"- {d}" for d in chapter.diagrams) or "(none)"
     kindle_clause = (
         "\n\nKindle constraint: code lines must be ≤60 characters; refactor or wrap rather "
-        "than truncating. Avoid wide tables."
+        "than truncating. Avoid wide tables (≤4 columns)."
         if opts.kindle
         else ""
     )
@@ -28,7 +30,11 @@ def build_chapter_messages(
         f"Synopsis: {chapter.synopsis}\n\n"
         f"Required beats (cover all):\n{beats}\n\n"
         f"Code examples to include (runnable, fenced, language-tagged):\n{code}\n\n"
-        f"Target length: ~{chapter.word_target} words.\n"
+        f"Tables to include (use GitHub-style markdown tables):\n{tables}\n\n"
+        f"Diagrams to include (emit each as a fenced ```mermaid``` block; "
+        f"the build pipeline renders them to images):\n{diagrams}\n\n"
+        f"Target length: ~{chapter.word_target} words "
+        "(tables and diagrams substitute for prose, not in addition to it).\n"
         "Output Markdown only. Begin with `# {title}` as the H1. "
         "Do not include front-matter, commentary, or surrounding prose."
         f"{kindle_clause}"

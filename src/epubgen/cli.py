@@ -99,6 +99,9 @@ def generate(
         bool, typer.Option("--kindle", help="Tune for Kindle; emit .azw3 if available")
     ] = False,
     no_cover: Annotated[bool, typer.Option("--no-cover", help="Skip cover generation")] = False,
+    no_diagrams: Annotated[
+        bool, typer.Option("--no-diagrams", help="Skip mermaid diagram rendering")
+    ] = False,
     cover_prompt: Annotated[str | None, typer.Option("--cover-prompt")] = None,
     author: Annotated[str, typer.Option("--author")] = "epubgen",
     force: Annotated[bool, typer.Option("--force", help="Override options.json mismatch")] = False,
@@ -146,6 +149,7 @@ def generate(
         concurrency=concurrency,
         kindle=kindle,
         no_cover=no_cover,
+        no_diagrams=no_diagrams,
         cover_prompt=cover_prompt,
         author=author,
         preferred_title=preferred_title,

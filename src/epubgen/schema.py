@@ -17,6 +17,8 @@ class Chapter(BaseModel):
     synopsis: str = Field(min_length=20)
     beats: list[Beat] = Field(min_length=2, max_length=12)
     code_examples: list[str] = Field(default_factory=list, max_length=20)
+    tables: list[str] = Field(default_factory=list, max_length=10)
+    diagrams: list[str] = Field(default_factory=list, max_length=10)
     word_target: int = Field(gt=0)
 
 
@@ -50,6 +52,7 @@ class Options(BaseModel):
     concurrency: int = 3
     kindle: bool = False
     no_cover: bool = False
+    no_diagrams: bool = False
     cover_prompt: str | None = None
     author: str = "epubgen"
     preferred_title: str | None = None

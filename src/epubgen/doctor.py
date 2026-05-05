@@ -61,6 +61,17 @@ def _check_kindlepreviewer() -> Check:
     return Check("kindlepreviewer", OK, path)
 
 
+def _check_mmdc() -> Check:
+    path = shutil.which("mmdc")
+    if not path:
+        return Check(
+            "mmdc (mermaid-cli)",
+            WARN,
+            "not on PATH (optional; install: npm i -g @mermaid-js/mermaid-cli)",
+        )
+    return Check("mmdc (mermaid-cli)", OK, path)
+
+
 def _check_openai_key() -> Check:
     key = os.environ.get("OPENAI_API_KEY")
     if not key:
@@ -77,6 +88,7 @@ def run_checks() -> list[Check]:
         _check_python(),
         _check_anthropic_key(),
         _check_pandoc(),
+        _check_mmdc(),
         _check_kindlepreviewer(),
         _check_openai_key(),
     ]

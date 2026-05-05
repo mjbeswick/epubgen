@@ -46,6 +46,16 @@ OUTLINE_TOOL = {
                             "items": {"type": "string"},
                             "maxItems": 20,
                         },
+                        "tables": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "maxItems": 10,
+                        },
+                        "diagrams": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "maxItems": 10,
+                        },
                         "word_target": {"type": "integer", "minimum": 200},
                     },
                 },
@@ -75,8 +85,14 @@ def build_outline_messages(style: Style, opts: Options) -> dict[str, Any]:
         f"Target words per chapter: ~{opts.words}\n"
         f"{chapters_clause}"
         f"{title_clause}\n"
-        "Each chapter must include 3–8 beats and 0–6 code_examples "
-        "(short natural-language descriptions of snippets to include).\n"
+        "For each chapter populate:\n"
+        "- 3–8 beats covering the chapter's substance.\n"
+        "- 0–6 code_examples: short descriptions of runnable snippets to include.\n"
+        "- 0–4 tables: short descriptions of data the reader benefits from in tabular form "
+        "(e.g. 'parameter reference', 'tradeoff matrix', 'benchmark results').\n"
+        "- 0–3 diagrams: short descriptions of figures that aid understanding "
+        "(e.g. 'sequence diagram of the request lifecycle', 'class hierarchy', "
+        "'state machine'). Diagrams will be rendered from Mermaid syntax.\n"
         "Use the emit_outline tool to return the outline."
     )
     return {

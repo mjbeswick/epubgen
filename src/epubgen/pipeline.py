@@ -6,13 +6,14 @@ from pathlib import Path
 from epubgen.assemble import assemble, maybe_make_azw3
 from epubgen.chapters import generate_all
 from epubgen.cover import existing_cover, generate_cover
+from epubgen.diagrams import render_all
 from epubgen.logsetup import get_logger
 from epubgen.outline import get_or_generate_outline
 from epubgen.progress import progress
 from epubgen.prompts.cover import build_cover_image_prompt
 from epubgen.schema import Options
 from epubgen.styles import load_style
-from epubgen.workdir import ensure_workdir, freeze_options
+from epubgen.workdir import chapter_path, ensure_workdir, freeze_options
 
 log = get_logger("pipeline")
 
@@ -31,6 +32,13 @@ async def run_async(opts: Options) -> Path:
     log.info("generating chapters (concurrency=%d)", opts.concurrency)
     with progress(total=len(outline.chapters)) as p:
         await generate_all(style, outline, opts, workdir, progress=p.update)
+
+    if not opts.no_diagrams:
+        chapter_files = [chapter_path(workdir, ch.number) for ch in outline.chapters]
+        fmt = "png" if opts.kindle else "svg"
+        n = render_all(chapter_files, workdir, fmt=fmt)
+        if n:
+            log.info("rendered %d diagram(s) total", n)
 
     cover_path: Path | None = None
     if not opts.no_cover:
