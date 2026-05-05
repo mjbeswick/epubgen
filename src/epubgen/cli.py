@@ -36,6 +36,9 @@ EXIT_FS = 4
 EXIT_OUTLINE = 5
 
 
+_PREFLIGHT_SKIP = {"doctor", "styles"}
+
+
 def _preflight() -> None:
     checks = run_checks()
     fatal = fatal_checks(checks)
@@ -47,7 +50,6 @@ def _preflight() -> None:
 
 
 def _run(opts: Options) -> None:
-    _preflight()
     log = get_logger("cli")
     log.debug("resolved options: %s", opts.model_dump_json())
     try:
@@ -246,11 +248,14 @@ def _root(
     ] = False,
 ) -> None:
     if ctx.invoked_subcommand is not None:
+        if ctx.invoked_subcommand not in _PREFLIGHT_SKIP:
+            _preflight()
         return
     if not sys.stdin.isatty():
         typer.echo(ctx.get_help())
         raise typer.Exit(EXIT_USER)
     # Bare invocation in a TTY: drop into the wizard.
+    _preflight()
     resolved_log = resolve_log_file(log=log, log_file=log_file)
     configure_logging(verbose=verbose, log_file=resolved_log)
     if resolved_log is not None:
