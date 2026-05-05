@@ -2,10 +2,23 @@ from __future__ import annotations
 
 import logging
 import sys
+import time
 from pathlib import Path
 
 _FMT = "%(asctime)s %(levelname)-5s %(name)s: %(message)s"
 _DATEFMT = "%H:%M:%S"
+
+
+def default_log_path() -> Path:
+    return Path.cwd() / f"epubgen-{time.strftime('%Y%m%d-%H%M%S')}.log"
+
+
+def resolve_log_file(*, log: bool, log_file: Path | None) -> Path | None:
+    if log_file is not None:
+        return log_file
+    if log:
+        return default_log_path()
+    return None
 
 
 def configure_logging(*, verbose: bool, log_file: Path | None) -> None:

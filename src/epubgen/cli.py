@@ -15,7 +15,7 @@ from epubgen.errors import (
     OutlineError,
     PandocError,
 )
-from epubgen.logsetup import configure_logging, get_logger
+from epubgen.logsetup import configure_logging, get_logger, resolve_log_file
 from epubgen.schema import Options
 from epubgen.styles import list_all_styles, load_style
 from epubgen.workdir import default_workdir, slugify
@@ -93,12 +93,18 @@ def generate(
     ] = False,
     dry_run: Annotated[bool, typer.Option("--dry-run")] = False,
     verbose: Annotated[bool, typer.Option("--verbose", "-v")] = False,
+    log: Annotated[
+        bool, typer.Option("--log", help="Write debug log to ./epubgen-<ts>.log")
+    ] = False,
     log_file: Annotated[
-        Path | None, typer.Option("--log-file", help="Write a debug log to this file")
+        Path | None, typer.Option("--log-file", help="Write a debug log to this path")
     ] = None,
 ) -> None:
     """Generate an EPUB from a topic."""
-    configure_logging(verbose=verbose, log_file=log_file)
+    resolved_log = resolve_log_file(log=log, log_file=log_file)
+    configure_logging(verbose=verbose, log_file=resolved_log)
+    if resolved_log is not None:
+        typer.secho(f"📝 logging to {resolved_log}", fg=typer.colors.CYAN, err=True)
     get_logger("cli").info("epubgen generate: topic=%r style=%s", topic, style)
     out_path = out or Path(f"./{slugify(topic)}.epub")
     preferred_title = None
@@ -143,10 +149,14 @@ def generate(
 @app.command()
 def wizard(
     verbose: Annotated[bool, typer.Option("--verbose", "-v")] = False,
+    log: Annotated[bool, typer.Option("--log")] = False,
     log_file: Annotated[Path | None, typer.Option("--log-file")] = None,
 ) -> None:
     """Interactive prompt-driven generation."""
-    configure_logging(verbose=verbose, log_file=log_file)
+    resolved_log = resolve_log_file(log=log, log_file=log_file)
+    configure_logging(verbose=verbose, log_file=resolved_log)
+    if resolved_log is not None:
+        typer.secho(f"📝 logging to {resolved_log}", fg=typer.colors.CYAN, err=True)
     from epubgen.wizard import run_wizard
 
     opts = run_wizard()
@@ -161,10 +171,14 @@ def resume(
     workdir: Annotated[Path, typer.Argument(help="Work dir of an interrupted run")],
     out: Annotated[Path | None, typer.Option("--out", "-o")] = None,
     verbose: Annotated[bool, typer.Option("--verbose", "-v")] = False,
+    log: Annotated[bool, typer.Option("--log")] = False,
     log_file: Annotated[Path | None, typer.Option("--log-file")] = None,
 ) -> None:
     """Resume an interrupted run from its workdir."""
-    configure_logging(verbose=verbose, log_file=log_file)
+    resolved_log = resolve_log_file(log=log, log_file=log_file)
+    configure_logging(verbose=verbose, log_file=resolved_log)
+    if resolved_log is not None:
+        typer.secho(f"📝 logging to {resolved_log}", fg=typer.colors.CYAN, err=True)
     import json
 
     options_path = workdir / "options.json"
@@ -189,15 +203,37 @@ def styles_show(name: str) -> None:
     typer.echo(style.guide)
 
 
+def _version_callback(value: bool) -> None:
+    if value:
+        from epubgen import __version__
+
+        typer.echo(f"epubgen {__version__}")
+        raise typer.Exit()
+
+
 @app.callback(invoke_without_command=True)
-def _root(ctx: typer.Context) -> None:
+def _root(
+    ctx: typer.Context,
+    verbose: Annotated[bool, typer.Option("--verbose", "-v")] = False,
+    log: Annotated[bool, typer.Option("--log")] = False,
+    log_file: Annotated[Path | None, typer.Option("--log-file")] = None,
+    version: Annotated[
+        bool,
+        typer.Option(
+            "--version", "-V", callback=_version_callback, is_eager=True, help="Print version"
+        ),
+    ] = False,
+) -> None:
     if ctx.invoked_subcommand is not None:
         return
     if not sys.stdin.isatty():
         typer.echo(ctx.get_help())
         raise typer.Exit(EXIT_USER)
     # Bare invocation in a TTY: drop into the wizard.
-    configure_logging(verbose=False, log_file=None)
+    resolved_log = resolve_log_file(log=log, log_file=log_file)
+    configure_logging(verbose=verbose, log_file=resolved_log)
+    if resolved_log is not None:
+        typer.secho(f"📝 logging to {resolved_log}", fg=typer.colors.CYAN, err=True)
     from epubgen.wizard import run_wizard
 
     opts = run_wizard()

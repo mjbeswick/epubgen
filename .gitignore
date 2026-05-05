@@ -9,4 +9,6 @@ build/
 *.epub
 *.azw3
 *.work/
+*.log
+epubgen-*.log
 .env
