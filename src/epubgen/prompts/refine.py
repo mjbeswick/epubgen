@@ -30,7 +30,12 @@ REFINE_TOOL = {
 }
 
 
-def build_refine_messages(style: Style, topic: str) -> dict[str, Any]:
+def build_refine_messages(style: Style, topic: str, hint: str | None = None) -> dict[str, Any]:
+    hint_clause = (
+        f"\n\nAdditional steering from the user (apply to all three): {hint!r}"
+        if hint
+        else ""
+    )
     user = (
         f"Topic from the user: {topic!r}\n\n"
         "Propose three distinct framings for a book on this topic, in the voice of the "
@@ -39,7 +44,7 @@ def build_refine_messages(style: Style, topic: str) -> dict[str, Any]:
         "- subtitle: a clarifying subtitle (one phrase)\n"
         "- angle: one sentence on what makes this framing different from the others.\n\n"
         "Make the three meaningfully different in scope or stance — not three rewordings "
-        "of the same idea. Use the emit_titles tool."
+        f"of the same idea. Use the emit_titles tool.{hint_clause}"
     )
     return {
         "system": [

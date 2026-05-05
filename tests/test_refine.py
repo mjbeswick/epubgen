@@ -1,9 +1,10 @@
 from pathlib import Path
 
 from epubgen import anthropic_client
+from epubgen.prompts.description import build_description_messages
 from epubgen.prompts.refine import REFINE_TOOL, build_refine_messages
-from epubgen.refine import refine_topic
-from epubgen.schema import Options
+from epubgen.refine import refine_description, refine_topic
+from epubgen.schema import Options, RefinedTopic
 from epubgen.styles import load_style
 from tests.fixtures.fake_anthropic import FakeAnthropic, tool_response
 
@@ -15,6 +16,69 @@ def test_refine_messages_cache_on_style():
     assert "cache_control" not in msgs["system"][1]
     assert msgs["tool_choice"] == {"type": "tool", "name": "emit_titles"}
     assert msgs["tools"][0] is REFINE_TOOL
+
+
+def test_refine_messages_with_hint_includes_steering():
+    style = load_style("oreilly")
+    msgs = build_refine_messages(style, "python performance", hint="punchier")
+    user = msgs["messages"][0]["content"]
+    assert "punchier" in user
+
+
+def test_description_messages_cache_on_style():
+    style = load_style("oreilly")
+    framing = RefinedTopic(
+        title="Fast Python",
+        subtitle="A measurement-first guide",
+        angle="Practical, evidence-driven optimization for working developers.",
+    )
+    msgs = build_description_messages(style, "python perf", framing)
+    assert msgs["system"][0]["cache_control"] == {"type": "ephemeral"}
+    assert msgs["tool_choice"] == {"type": "tool", "name": "emit_description"}
+    assert "Fast Python" in msgs["messages"][0]["content"]
+
+
+async def test_refine_description_returns_string():
+    framing = RefinedTopic(
+        title="Fast Python",
+        subtitle="A measurement-first guide",
+        angle="Practical, evidence-driven optimization for working developers.",
+    )
+    long_desc = "A solid description that easily clears the eighty character minimum. " * 2
+    fake = FakeAnthropic(handler=lambda _: tool_response({"description": long_desc}))
+    anthropic_client.set_client(fake)
+    try:
+        out = await refine_description(
+            load_style("oreilly"), "python perf", framing, model="claude-opus-4-7"
+        )
+        assert long_desc.strip() == out
+    finally:
+        anthropic_client.set_client(None)
+
+
+def test_description_metadata_yaml_includes_description():
+    from epubgen.assemble import metadata_yaml
+    from epubgen.schema import Beat, Chapter, Outline
+
+    outline = Outline(
+        title="X",
+        topic="t",
+        style="oreilly",
+        chapters=[
+            Chapter(
+                number=i,
+                title=f"C{i}",
+                synopsis="A reasonable synopsis describing what this chapter covers.",
+                beats=[Beat(summary="One beat here"), Beat(summary="Second beat here")],
+                word_target=2000,
+            )
+            for i in range(1, 4)
+        ],
+    )
+    opts = Options(topic="t", out=Path("/tmp/x.epub"), description="A great description.")
+    text = metadata_yaml(outline, opts)
+    assert "description" in text
+    assert "A great description" in text
 
 
 async def test_refine_returns_three():

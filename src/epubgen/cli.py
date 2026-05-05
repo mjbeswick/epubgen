@@ -7,6 +7,7 @@ from typing import Annotated
 import typer
 
 from epubgen import pipeline
+from epubgen.doctor import fatal_checks, format_checks, run_checks
 from epubgen.errors import (
     ApiError,
     ConfigError,
@@ -35,7 +36,18 @@ EXIT_FS = 4
 EXIT_OUTLINE = 5
 
 
+def _preflight() -> None:
+    checks = run_checks()
+    fatal = fatal_checks(checks)
+    if fatal:
+        typer.secho("preflight failed:", fg=typer.colors.RED, err=True)
+        typer.echo(format_checks(checks), err=True)
+        typer.secho("\nrun `epubgen doctor` for full report", fg=typer.colors.YELLOW, err=True)
+        raise typer.Exit(EXIT_USER)
+
+
 def _run(opts: Options) -> None:
+    _preflight()
     log = get_logger("cli")
     log.debug("resolved options: %s", opts.model_dump_json())
     try:
@@ -189,6 +201,15 @@ def resume(
     out_path = out or Path(f"./{slugify(frozen['topic'])}.epub")
     opts = Options(out=out_path, workdir=workdir, **frozen)
     _run(opts)
+
+
+@app.command()
+def doctor() -> None:
+    """Check the runtime environment for required and optional dependencies."""
+    checks = run_checks()
+    typer.echo(format_checks(checks))
+    if fatal_checks(checks):
+        raise typer.Exit(EXIT_USER)
 
 
 @styles_app.command("list")

@@ -32,6 +32,8 @@ def metadata_yaml(outline: Outline, opts: Options) -> str:
     }
     if outline.subtitle:
         md["subtitle"] = outline.subtitle
+    if opts.description:
+        md["description"] = opts.description
     md.update(opts.metadata)
     return yaml.safe_dump(md, sort_keys=False)
 

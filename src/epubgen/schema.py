@@ -54,6 +54,7 @@ class Options(BaseModel):
     author: str = "epubgen"
     preferred_title: str | None = None
     preferred_subtitle: str | None = None
+    description: str | None = None
     metadata: dict[str, str] = Field(default_factory=dict)
     force: bool = False
     dry_run: bool = False
@@ -71,4 +72,5 @@ class Options(BaseModel):
             "author": self.author,
             "preferred_title": self.preferred_title,
             "preferred_subtitle": self.preferred_subtitle,
+            "description": self.description,
         }

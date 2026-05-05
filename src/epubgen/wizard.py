@@ -7,7 +7,7 @@ from pathlib import Path
 import questionary
 from rich.console import Console
 
-from epubgen.refine import refine_topic
+from epubgen.refine import refine_description, refine_topic
 from epubgen.schema import Options, RefinedTopic
 from epubgen.styles import list_default_styles, load_style
 from epubgen.workdir import default_workdir, slugify
@@ -16,19 +16,33 @@ _console = Console(stderr=True)
 
 _SENTINEL_EDIT = "__edit__"
 _SENTINEL_REGEN = "__regen__"
+_SENTINEL_REGEN_HINT = "__regen_hint__"
+_SENTINEL_CLEAR_HINT = "__clear_hint__"
 _SENTINEL_RAW = "__raw__"
 
 
-def _build_choices(suggestions: list[RefinedTopic]) -> list[questionary.Choice]:
+def _build_choices(
+    suggestions: list[RefinedTopic], current_hint: str | None
+) -> list[questionary.Choice]:
     choices: list[questionary.Choice] = []
     for s in suggestions:
         title = f"{s.title}\n     {s.subtitle}\n     › {s.angle}"
         choices.append(questionary.Choice(title=title, value=s))
     choices.append(questionary.Separator("─" * 50))
     choices.append(questionary.Choice(title="✎  Edit one of the above", value=_SENTINEL_EDIT))
-    choices.append(questionary.Choice(title="↻  Regenerate", value=_SENTINEL_REGEN))
-    choices.append(questionary.Choice(title="→  Use my original topic (skip refinement)",
-                                      value=_SENTINEL_RAW))
+    regen_label = "↻  Regenerate"
+    if current_hint:
+        regen_label += f"  (with hint: {current_hint!r})"
+    choices.append(questionary.Choice(title=regen_label, value=_SENTINEL_REGEN))
+    hint_label = "✏  Regenerate with a hint…" if not current_hint else "✏  Change the hint…"
+    choices.append(questionary.Choice(title=hint_label, value=_SENTINEL_REGEN_HINT))
+    if current_hint:
+        choices.append(
+            questionary.Choice(title="✕  Clear hint and regenerate", value=_SENTINEL_CLEAR_HINT)
+        )
+    choices.append(
+        questionary.Choice(title="→  Use my original topic (skip refinement)", value=_SENTINEL_RAW)
+    )
     return choices
 
 
@@ -51,17 +65,22 @@ def _edit_suggestion(suggestions: list[RefinedTopic]) -> RefinedTopic | None:
 
 def _interactive_refine(style_name: str, topic: str, model: str) -> RefinedTopic | None:
     style = load_style(style_name)
+    hint: str | None = None
     while True:
-        with _console.status(f"Drafting framings for a {style.name} book…", spinner="dots"):
+        status_msg = f"Drafting framings for a {style.name} book"
+        if hint:
+            status_msg += f" (hint: {hint!r})"
+        status_msg += "…"
+        with _console.status(status_msg, spinner="dots"):
             try:
-                result = asyncio.run(refine_topic(style, topic, model=model))
+                result = asyncio.run(refine_topic(style, topic, model=model, hint=hint))
             except Exception as e:
                 _console.print(f"[yellow]refinement skipped: {e}[/yellow]")
                 return None
 
         choice = questionary.select(
             "Pick a framing:",
-            choices=_build_choices(result.suggestions),
+            choices=_build_choices(result.suggestions, hint),
         ).ask()
         if choice is None:
             return None
@@ -69,12 +88,106 @@ def _interactive_refine(style_name: str, topic: str, model: str) -> RefinedTopic
             return None
         if choice == _SENTINEL_REGEN:
             continue
+        if choice == _SENTINEL_CLEAR_HINT:
+            hint = None
+            continue
+        if choice == _SENTINEL_REGEN_HINT:
+            new_hint = questionary.text(
+                "Hint (e.g. 'punchier', 'less academic', 'focus on async'):",
+                default=hint or "",
+            ).ask()
+            if new_hint is None:
+                return None
+            hint = new_hint.strip() or None
+            continue
         if choice == _SENTINEL_EDIT:
             edited = _edit_suggestion(result.suggestions)
             if edited is not None:
                 return edited
             continue
         return choice  # type: ignore[return-value]
+
+
+_DESC_ACCEPT = "__accept__"
+_DESC_EDIT = "__edit__"
+_DESC_REGEN = "__regen__"
+_DESC_REGEN_HINT = "__regen_hint__"
+_DESC_CLEAR_HINT = "__clear_hint__"
+_DESC_SKIP = "__skip__"
+
+
+def _interactive_description(
+    style_name: str, topic: str, framing: RefinedTopic, model: str
+) -> str | None:
+    style = load_style(style_name)
+    hint: str | None = None
+    description: str | None = None
+    while True:
+        if description is None:
+            status_msg = f"Drafting a description for {framing.title!r}"
+            if hint:
+                status_msg += f" (hint: {hint!r})"
+            status_msg += "…"
+            with _console.status(status_msg, spinner="dots"):
+                try:
+                    description = asyncio.run(
+                        refine_description(style, topic, framing, model=model, hint=hint)
+                    )
+                except Exception as e:
+                    _console.print(f"[yellow]description skipped: {e}[/yellow]")
+                    return None
+        _console.print()
+        _console.print("[bold]Description draft:[/bold]")
+        _console.print(description)
+        _console.print()
+
+        choices = [
+            questionary.Choice(title="✓  Accept", value=_DESC_ACCEPT),
+            questionary.Choice(title="✎  Edit text", value=_DESC_EDIT),
+        ]
+        regen_label = "↻  Regenerate"
+        if hint:
+            regen_label += f"  (with hint: {hint!r})"
+        choices.append(questionary.Choice(title=regen_label, value=_DESC_REGEN))
+        hint_label = "✏  Regenerate with a hint…" if not hint else "✏  Change the hint…"
+        choices.append(questionary.Choice(title=hint_label, value=_DESC_REGEN_HINT))
+        if hint:
+            choices.append(
+                questionary.Choice(title="✕  Clear hint and regenerate", value=_DESC_CLEAR_HINT)
+            )
+        choices.append(questionary.Choice(title="→  Skip (no description)", value=_DESC_SKIP))
+
+        choice = questionary.select("What now?", choices=choices).ask()
+        if choice is None:
+            return None
+        if choice == _DESC_ACCEPT:
+            return description
+        if choice == _DESC_SKIP:
+            return None
+        if choice == _DESC_EDIT:
+            edited = questionary.text(
+                "Edit description (Enter to keep, ESC to cancel):", default=description
+            ).ask()
+            if edited is not None and edited.strip():
+                description = edited.strip()
+            continue
+        if choice == _DESC_CLEAR_HINT:
+            hint = None
+            description = None
+            continue
+        if choice == _DESC_REGEN:
+            description = None
+            continue
+        if choice == _DESC_REGEN_HINT:
+            new_hint = questionary.text(
+                "Hint (e.g. 'shorter', 'more enthusiastic', 'mention performance'):",
+                default=hint or "",
+            ).ask()
+            if new_hint is None:
+                return description
+            hint = new_hint.strip() or None
+            description = None
+            continue
 
 
 def run_wizard() -> Options | None:
@@ -96,6 +209,12 @@ def run_wizard() -> Options | None:
         return None
 
     refined = _interactive_refine(style, topic, model="claude-opus-4-7")
+
+    description: str | None = None
+    if refined is not None:
+        description = _interactive_description(
+            style, topic, refined, model="claude-opus-4-7"
+        )
 
     length = questionary.select(
         "Target length:",
@@ -130,4 +249,5 @@ def run_wizard() -> Options | None:
         kindle=bool(kindle),
         preferred_title=refined.title if refined else None,
         preferred_subtitle=refined.subtitle if refined else None,
+        description=description,
     )
