@@ -36,9 +36,10 @@ async def run_async(opts: Options) -> Path:
     if not opts.no_diagrams:
         chapter_files = [chapter_path(workdir, ch.number) for ch in outline.chapters]
         fmt = "png" if opts.kindle else "svg"
-        n = render_all(chapter_files, workdir, fmt=fmt)
+        skip = frozenset({"image"}) if opts.no_images else frozenset()
+        n = render_all(chapter_files, workdir, fmt=fmt, skip_kinds=skip)
         if n:
-            log.info("rendered %d diagram(s) total", n)
+            log.info("rendered %d figure(s) total", n)
 
     cover_path: Path | None = None
     if not opts.no_cover:

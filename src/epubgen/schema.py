@@ -20,6 +20,7 @@ class Chapter(BaseModel):
     tables: list[str] = Field(default_factory=list, max_length=10)
     diagrams: list[str] = Field(default_factory=list, max_length=10)
     charts: list[str] = Field(default_factory=list, max_length=10)
+    images: list[str] = Field(default_factory=list, max_length=4)
     word_target: int = Field(gt=0)
 
 
@@ -54,6 +55,7 @@ class Options(BaseModel):
     kindle: bool = False
     no_cover: bool = False
     no_diagrams: bool = False
+    no_images: bool = False
     cover_prompt: str | None = None
     author: str = "epubgen"
     preferred_title: str | None = None

@@ -100,7 +100,11 @@ def generate(
     ] = False,
     no_cover: Annotated[bool, typer.Option("--no-cover", help="Skip cover generation")] = False,
     no_diagrams: Annotated[
-        bool, typer.Option("--no-diagrams", help="Skip mermaid diagram rendering")
+        bool,
+        typer.Option("--no-diagrams", help="Skip all figure rendering (mermaid+chart+image)"),
+    ] = False,
+    no_images: Annotated[
+        bool, typer.Option("--no-images", help="Skip generated images only (keep mermaid/charts)")
     ] = False,
     cover_prompt: Annotated[str | None, typer.Option("--cover-prompt")] = None,
     author: Annotated[str, typer.Option("--author")] = "epubgen",
@@ -150,6 +154,7 @@ def generate(
         kindle=kindle,
         no_cover=no_cover,
         no_diagrams=no_diagrams,
+        no_images=no_images,
         cover_prompt=cover_prompt,
         author=author,
         preferred_title=preferred_title,

@@ -61,6 +61,11 @@ OUTLINE_TOOL = {
                             "items": {"type": "string"},
                             "maxItems": 10,
                         },
+                        "images": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "maxItems": 4,
+                        },
                         "word_target": {"type": "integer", "minimum": 200},
                     },
                 },
@@ -102,6 +107,10 @@ def build_outline_messages(style: Style, opts: Options) -> dict[str, Any]:
         "(e.g. 'histogram of latency p50/p95/p99', 'memory growth over time', "
         "'comparison bar chart of three approaches'). Charts will be rendered "
         "from Vega-Lite JSON.\n"
+        "- 0–2 images: short descriptions of generated illustrative images "
+        "(e.g. 'photo-realistic shot of a server rack with overlaid heat map', "
+        "'stylized illustration of a CPU pipeline'). Use SPARINGLY — only when "
+        "an image adds something diagrams/charts cannot. Each image costs ~$0.04.\n"
         "Use the emit_outline tool to return the outline."
     )
     return {

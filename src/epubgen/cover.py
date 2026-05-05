@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from xml.sax.saxutils import escape
 
-from epubgen.errors import CoverError
+from epubgen.images import COVER_SIZE, generate_image, is_available
 from epubgen.schema import Outline
 from epubgen.styles import Style
-from epubgen.workdir import atomic_write_bytes, atomic_write_text
+from epubgen.workdir import atomic_write_text
 
 PALETTES = {
     "oreilly": ("#003a5d", "#f4ecd8"),
@@ -52,43 +51,13 @@ def write_svg_cover(outline: Outline, style: Style, workdir: Path) -> Path:
     return path
 
 
-def _try_openai_cover(prompt: str, workdir: Path) -> Path | None:
-    if not os.environ.get("OPENAI_API_KEY"):
-        return None
-    try:
-        from openai import OpenAI
-    except ImportError:
-        return None
-    try:
-        client = OpenAI()
-        result = client.images.generate(
-            model="gpt-image-1",
-            prompt=prompt,
-            size="1024x1536",
-        )
-        import base64
-
-        b64 = result.data[0].b64_json
-        if not b64:
-            return None
-        path = workdir / "cover.png"
-        atomic_write_bytes(path, base64.b64decode(b64))
-        return path
-    except Exception as e:
-        raise CoverError(f"openai cover generation failed: {e}") from e
-
-
 def generate_cover(
     outline: Outline, style: Style, workdir: Path, prompt: str | None = None
 ) -> Path:
-    if prompt is not None:
-        try:
-            png = _try_openai_cover(prompt, workdir)
-            if png is not None:
-                return png
-        except CoverError:
-            # Degrade to SVG fallback rather than failing the run.
-            pass
+    if prompt is not None and is_available():
+        png = workdir / "cover.png"
+        if generate_image(prompt, png, size=COVER_SIZE):
+            return png
     return write_svg_cover(outline, style, workdir)
 
 

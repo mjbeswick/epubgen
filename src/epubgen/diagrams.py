@@ -7,6 +7,8 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from epubgen.images import DEFAULT_SIZE, generate_image
+from epubgen.images import is_available as image_gen_available
 from epubgen.logsetup import get_logger
 from epubgen.workdir import atomic_write_bytes, atomic_write_text
 
@@ -18,6 +20,10 @@ _MERMAID_FENCE = re.compile(
 )
 _VEGALITE_FENCE = re.compile(
     r"^```(?:vegalite|vega-lite)\s*\n(.*?)\n```\s*$",
+    re.MULTILINE | re.DOTALL,
+)
+_IMAGE_FENCE = re.compile(
+    r"^```image\s*\n(.*?)\n```\s*$",
     re.MULTILINE | re.DOTALL,
 )
 
@@ -83,6 +89,10 @@ def _render_vegalite(src: str, out_path: Path) -> bool:
     return True
 
 
+def _render_image(src: str, out_path: Path) -> bool:
+    return generate_image(src.strip(), out_path, size=DEFAULT_SIZE)
+
+
 def _find_blocks(text: str) -> list[tuple[int, int, str, str]]:
     """Return (start, end, kind, src) for every fenced figure block, in source order."""
     blocks: list[tuple[int, int, str, str]] = []
@@ -90,6 +100,8 @@ def _find_blocks(text: str) -> list[tuple[int, int, str, str]]:
         blocks.append((m.start(), m.end(), "mermaid", m.group(1)))
     for m in _VEGALITE_FENCE.finditer(text):
         blocks.append((m.start(), m.end(), "vegalite", m.group(1)))
+    for m in _IMAGE_FENCE.finditer(text):
+        blocks.append((m.start(), m.end(), "image", m.group(1)))
     blocks.sort(key=lambda b: b[0])
     return blocks
 
@@ -99,6 +111,8 @@ def _render_for_kind(kind: str, src: str, out_path: Path) -> bool:
         return _render_mermaid(src, out_path)
     if kind == "vegalite":
         return _render_vegalite(src, out_path)
+    if kind == "image":
+        return _render_image(src, out_path)
     return False
 
 
@@ -107,14 +121,23 @@ def _kind_available(kind: str) -> bool:
         return has_mmdc()
     if kind == "vegalite":
         return has_vl_convert()
+    if kind == "image":
+        return image_gen_available()
     return False
 
 
-def render_in_file(chapter_path: Path, workdir: Path, *, fmt: str = "svg") -> int:
-    """Replace fenced figure blocks (mermaid + vegalite) in chapter_path with image refs.
+def render_in_file(
+    chapter_path: Path,
+    workdir: Path,
+    *,
+    fmt: str = "svg",
+    skip_kinds: frozenset[str] = frozenset(),
+) -> int:
+    """Replace fenced figure blocks (mermaid + vegalite + image) with image refs.
 
-    Renders each to <workdir>/diagrams/ch-NN-DD.<fmt>. Returns count rendered.
-    Leaves blocks intact on failure (still readable as code).
+    Renders each to <workdir>/diagrams/ch-NN-DD.<ext>. Returns count rendered.
+    Kinds in skip_kinds pass through as code blocks. Leaves blocks intact on
+    failure (still readable as code).
     """
     text = chapter_path.read_text(encoding="utf-8")
     blocks = _find_blocks(text)
@@ -125,22 +148,29 @@ def render_in_file(chapter_path: Path, workdir: Path, *, fmt: str = "svg") -> in
     diag_dir.mkdir(parents=True, exist_ok=True)
     stem = chapter_path.stem  # ch-NN
 
+    alt_for = {"mermaid": "Diagram", "vegalite": "Chart", "image": "Figure"}
     rendered = 0
     new_parts: list[str] = []
     cursor = 0
     for idx, (start, end, kind, src) in enumerate(blocks, start=1):
         new_parts.append(text[cursor:start])
+        if kind in skip_kinds:
+            log.info("%s skipped by flag in %s", kind, chapter_path.name)
+            new_parts.append(text[start:end])
+            cursor = end
+            continue
         if not _kind_available(kind):
             log.info("%s unavailable; leaving %s block intact in %s", kind, kind, chapter_path.name)
             new_parts.append(text[start:end])
         else:
-            out_path = diag_dir / f"{stem}-{idx:02d}.{fmt}"
+            # Generated images are always PNG; mermaid/vegalite honor the requested fmt.
+            ext = "png" if kind == "image" else fmt
+            out_path = diag_dir / f"{stem}-{idx:02d}.{ext}"
             ok = out_path.exists() or _render_for_kind(kind, src, out_path)
             if ok:
                 rendered += 1
                 rel = out_path.relative_to(workdir)
-                alt = "Diagram" if kind == "mermaid" else "Chart"
-                new_parts.append(f"![{alt}]({rel})")
+                new_parts.append(f"![{alt_for[kind]}]({rel})")
             else:
                 new_parts.append(text[start:end])
         cursor = end
@@ -152,8 +182,14 @@ def render_in_file(chapter_path: Path, workdir: Path, *, fmt: str = "svg") -> in
     return rendered
 
 
-def render_all(chapter_paths: list[Path], workdir: Path, *, fmt: str = "svg") -> int:
+def render_all(
+    chapter_paths: list[Path],
+    workdir: Path,
+    *,
+    fmt: str = "svg",
+    skip_kinds: frozenset[str] = frozenset(),
+) -> int:
     total = 0
     for p in chapter_paths:
-        total += render_in_file(p, workdir, fmt=fmt)
+        total += render_in_file(p, workdir, fmt=fmt, skip_kinds=skip_kinds)
     return total

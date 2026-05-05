@@ -33,7 +33,9 @@ def _handler(req):
 
 
 @pytest.mark.skipif(not _has_pandoc(), reason="pandoc not installed")
-def test_end_to_end_produces_valid_epub(tmp_path: Path):
+def test_end_to_end_produces_valid_epub(tmp_path: Path, monkeypatch):
+    # Force SVG cover fallback regardless of host env to avoid hitting any image API.
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     out = tmp_path / "book.epub"
     workdir = tmp_path / "work"
     opts = Options(
