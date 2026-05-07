@@ -334,17 +334,76 @@ def step_description(state: State, allow_back: bool) -> StepResult:
             continue
 
 
+def _workdir_summary(workdir: Path) -> list[str]:
+    """One-line summary of any prior-run artifacts in the workdir."""
+    if not workdir.exists():
+        return []
+    items: list[str] = []
+    for name in ("options.json", "outline.json", "colophon.md", "metadata.yaml"):
+        if (workdir / name).exists():
+            items.append(name)
+    chapters = sorted(workdir.glob("ch-*.md"))
+    if chapters:
+        items.append(f"{len(chapters)} chapter(s)")
+    return items
+
+
 def step_out_path(state: State, allow_back: bool) -> StepResult:
-    title_for_slug = state.refined.title if state.refined else state.topic
-    default_out = state.out_path and str(state.out_path) or f"./{slugify(title_for_slug)}.epub"
-    answer = questionary.text("Output path:", default=default_out).ask()
-    if answer is None:
-        return "back" if allow_back else "cancel"
-    if not answer.strip():
-        return "cancel"
-    state.out_path = Path(answer.strip())
-    state.workdir = default_workdir(state.out_path)
-    return "next"
+    while True:
+        title_for_slug = state.refined.title if state.refined else state.topic
+        default_out = (
+            state.out_path and str(state.out_path)
+        ) or f"./{slugify(title_for_slug)}.epub"
+        answer = questionary.text("Output path:", default=default_out).ask()
+        if answer is None:
+            return "back" if allow_back else "cancel"
+        if not answer.strip():
+            return "cancel"
+        out_path = Path(answer.strip())
+        workdir = default_workdir(out_path)
+
+        contents = _workdir_summary(workdir)
+        if not contents:
+            state.out_path = out_path
+            state.workdir = workdir
+            return "next"
+
+        # Stale workdir from a prior run — the pipeline's freeze_options check
+        # will refuse to proceed if anything diverges, so resolve it now.
+        _console.print()
+        _console.print(
+            f"[yellow]The workdir [bold]{workdir}[/bold] already contains: "
+            f"{', '.join(contents)}[/yellow]"
+        )
+        _console.print(
+            "[dim]Generating into a stale workdir would either overwrite or "
+            "fail with an options.json mismatch.[/dim]"
+        )
+        _console.print()
+        nav: list[questionary.Choice | questionary.Separator] = [
+            questionary.Choice(
+                title="🗑  Clear that workdir and start fresh here", value="clear"
+            ),
+            questionary.Choice(title="✎  Pick a different output path", value="retry"),
+            questionary.Separator("─" * 50),
+        ]
+        if allow_back:
+            nav.append(questionary.Choice(title="←  Back", value=BACK))
+        nav.append(questionary.Choice(title="✕  Cancel", value=CANCEL))
+        choice = questionary.select("What should we do?", choices=nav).ask()
+        if choice is None or choice == CANCEL:
+            return "cancel"
+        if choice == BACK:
+            return "back"
+        if choice == "retry":
+            # Keep the typed path as the next default so the user can edit it.
+            state.out_path = out_path
+            continue
+        if choice == "clear":
+            shutil.rmtree(workdir)
+            state.out_path = out_path
+            state.workdir = workdir
+            return "next"
 
 
 _TOC_ACCEPT = "__accept__"
