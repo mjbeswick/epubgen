@@ -102,7 +102,7 @@ def progress(total: int) -> Any:
             if status == "start":
                 if n not in sub:
                     label = f"  ch {n:02d}  {_truncate(title, 50)}"
-                    sub[n] = p.add_task(label, total=None, start=True)
+                    sub[n] = p.add_task(label, total=None, start=True, cost="")
             elif status in ("done", "skip"):
                 if n in sub:
                     p.remove_task(sub.pop(n))
