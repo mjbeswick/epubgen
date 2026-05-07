@@ -65,25 +65,27 @@ async def generate_all(
         if path.exists():
             log.info("ch %02d skip (exists: %s)", ch.number, path.name)
             if progress:
-                progress(ch.number, "skip", None)
+                progress(ch.number, "skip", None, ch.title)
             return
-        log.info("ch %02d start: %r", ch.number, ch.title)
         if progress:
-            progress(ch.number, "start", None)
-        t0 = time.monotonic()
+            progress(ch.number, "queued", None, ch.title)
         async with sem:
+            log.info("ch %02d running: %r", ch.number, ch.title)
+            if progress:
+                progress(ch.number, "start", None, ch.title)
+            t0 = time.monotonic()
             text, stats = await generate_chapter(style, outline, ch, opts)
-        elapsed = time.monotonic() - t0
-        atomic_write_text(path, text)
-        log.info(
-            "ch %02d done in %.1fs (out_tok=%s cache_read=%s cache_create=%s)",
-            ch.number,
-            elapsed,
-            stats.get("output_tokens"),
-            stats.get("cache_read_input_tokens"),
-            stats.get("cache_creation_input_tokens"),
-        )
-        if progress:
-            progress(ch.number, "done", stats)
+            elapsed = time.monotonic() - t0
+            atomic_write_text(path, text)
+            log.info(
+                "ch %02d done in %.1fs (out_tok=%s cache_read=%s cache_create=%s)",
+                ch.number,
+                elapsed,
+                stats.get("output_tokens"),
+                stats.get("cache_read_input_tokens"),
+                stats.get("cache_creation_input_tokens"),
+            )
+            if progress:
+                progress(ch.number, "done", stats, ch.title)
 
     await asyncio.gather(*(one(ch) for ch in outline.chapters))

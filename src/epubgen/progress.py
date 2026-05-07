@@ -43,16 +43,23 @@ def phase(label: str) -> Any:
 class _PlainProgress:
     total: int
 
-    def update(self, n: int, status: str, stats: dict[str, int] | None) -> None:
+    def update(
+        self, n: int, status: str, stats: dict[str, int] | None, title: str = ""
+    ) -> None:
         words = ""
         if stats:
             words = f" ({stats.get('output_tokens', 0)} out tok)"
-        print(f"[ch {n:02d}] {status}{words}", file=sys.stderr, flush=True)
+        suffix = f": {title}" if title and status in ("queued", "start") else ""
+        print(f"[ch {n:02d}] {status}{suffix}{words}", file=sys.stderr, flush=True)
+
+
+def _truncate(s: str, n: int) -> str:
+    return s if len(s) <= n else s[: n - 1] + "…"
 
 
 @contextmanager
 def progress(total: int) -> Any:
-    """Per-chapter progress bar (used during the chapter-generation pool)."""
+    """Chapter-generation progress: overall bar + a live sub-task per running chapter."""
     if not is_tty():
         yield _PlainProgress(total)
         return
@@ -60,6 +67,7 @@ def progress(total: int) -> Any:
         from rich.progress import (
             BarColumn,
             Progress,
+            SpinnerColumn,
             TextColumn,
             TimeElapsedColumn,
         )
@@ -68,20 +76,37 @@ def progress(total: int) -> Any:
         return
 
     p = Progress(
-        TextColumn("[bold cyan]chapters"),
+        SpinnerColumn(style="cyan"),
+        TextColumn("{task.description}"),
         BarColumn(),
-        TextColumn("{task.completed}/{task.total}"),
+        TextColumn("[dim]{task.completed}/{task.total}[/dim]"),
         TimeElapsedColumn(),
         console=_console,
         transient=False,
+        refresh_per_second=8,
     )
-    task_id = p.add_task("chapters", total=total)
+    overall = p.add_task("[bold cyan]chapters", total=total)
+    sub: dict[int, int] = {}
 
     class _RichProgress:
-        def update(self, n: int, status: str, stats: dict[str, int] | None) -> None:
-            if status in ("done", "skip"):
-                p.advance(task_id, 1)
-            p.console.log(f"[ch {n:02d}] {status}")
+        def update(
+            self, n: int, status: str, stats: dict[str, int] | None, title: str = ""
+        ) -> None:
+            if status == "queued":
+                # Don't add a sub-task yet — chapter is waiting on the semaphore.
+                p.console.log(f"[dim][ch {n:02d}] queued[/dim]")
+            elif status == "start":
+                if n not in sub:
+                    label = f"  [cyan]ch {n:02d}[/cyan] {_truncate(title, 50)}"
+                    sub[n] = p.add_task(label, total=None, start=True)
+            elif status in ("done", "skip"):
+                if n in sub:
+                    p.remove_task(sub.pop(n))
+                p.advance(overall, 1)
+                tail = ""
+                if stats and stats.get("output_tokens"):
+                    tail = f" [dim]({stats['output_tokens']} tok)[/dim]"
+                p.console.log(f"[green]✓[/green] ch {n:02d} {status}{tail}")
 
     p.start()
     try:
