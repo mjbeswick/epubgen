@@ -89,6 +89,22 @@ def test_ereader_clause_only_when_ereader():
     assert "≤60" in ereader["messages"][0]["content"]
 
 
+def test_outline_prompt_lets_model_pick_words_when_unset():
+    style = load_style("oreilly")
+    msgs = build_outline_messages(style, _opts())  # words=None default
+    user = msgs["messages"][0]["content"]
+    assert "VARY the targets" in user
+    assert "Target words per chapter: ~" not in user
+
+
+def test_outline_prompt_locks_words_when_set():
+    style = load_style("oreilly")
+    msgs = build_outline_messages(style, _opts(words=2500))
+    user = msgs["messages"][0]["content"]
+    assert "~2500" in user
+    assert "VARY the targets" not in user
+
+
 def test_canonical_outline_is_byte_stable():
     o1 = _outline()
     o2 = _outline()

@@ -92,7 +92,13 @@ def generate(
     out: Annotated[Path | None, typer.Option("--out", "-o", help="Output .epub path")] = None,
     workdir: Annotated[Path | None, typer.Option("--workdir", "-w", help="Work dir")] = None,
     chapters: Annotated[int | None, typer.Option("--chapters", "-c")] = None,
-    words: Annotated[int, typer.Option("--words", "-W", help="Target words per chapter")] = 3000,
+    words: Annotated[
+        int | None,
+        typer.Option(
+            "--words", "-W",
+            help="Force a uniform target words per chapter (default: model picks per chapter)",
+        ),
+    ] = None,
     model: Annotated[str, typer.Option("--model", "-m")] = "claude-opus-4-7",
     concurrency: Annotated[int, typer.Option("--concurrency")] = 3,
     ereader: Annotated[

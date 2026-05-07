@@ -49,7 +49,7 @@ class Options(BaseModel):
     out: Path
     workdir: Path | None = None
     chapters: int | None = None
-    words: int = 3000
+    words: int | None = None
     model: str = "claude-opus-4-7"
     concurrency: int = 3
     ereader: bool = False

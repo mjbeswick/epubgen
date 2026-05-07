@@ -82,7 +82,21 @@ def build_outline_messages(
     chapters_clause = (
         f"Aim for exactly {opts.chapters} chapters."
         if opts.chapters
-        else "Choose a chapter count appropriate to the topic and style — typically 6–16."
+        else (
+            "Choose the chapter COUNT yourself based on the topic's natural breadth "
+            "and the style's typical book length — anywhere from 6 to 16 chapters."
+        )
+    )
+    words_clause = (
+        f"Target words per chapter: ~{opts.words}."
+        if opts.words
+        else (
+            "Set each chapter's word_target based on its actual depth — a short framing "
+            "or summary chapter may be 1200–2000 words; a typical chapter 2500–4000; "
+            "a deep technical dive 4500–6500. VARY the targets across the book; do not "
+            "make every chapter the same length. Respect the style guide's '## Length' "
+            "section as the overall envelope."
+        )
     )
     hint_clause = (
         f"\nAdditional steering from the user: {hint!r}" if hint else ""
@@ -98,7 +112,7 @@ def build_outline_messages(
     user = (
         f"Topic: {opts.topic}\n"
         f"Style: {style.name}\n"
-        f"Target words per chapter: ~{opts.words}\n"
+        f"{words_clause}\n"
         f"{chapters_clause}"
         f"{title_clause}\n"
         "For each chapter populate:\n"
