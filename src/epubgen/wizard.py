@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import shutil
 import sys
+import textwrap
 from pathlib import Path
 
 import questionary
@@ -21,12 +23,25 @@ _SENTINEL_CLEAR_HINT = "__clear_hint__"
 _SENTINEL_RAW = "__raw__"
 
 
+def _wrap(text: str, *, indent: int, width: int) -> str:
+    """Wrap text to width, prefixing every line after the first with indent spaces."""
+    avail = max(20, width - indent)
+    lines = textwrap.wrap(text, width=avail) or [text]
+    pad = " " * indent
+    return ("\n" + pad).join(lines)
+
+
 def _build_choices(
     suggestions: list[RefinedTopic], current_hint: str | None
 ) -> list[questionary.Choice]:
+    # questionary prefixes each rendered choice with ~4 chars of cursor/marker, so
+    # leave a margin to avoid the renderer truncating long lines.
+    term_width = shutil.get_terminal_size((100, 24)).columns - 8
     choices: list[questionary.Choice] = []
     for s in suggestions:
-        title = f"{s.title}\n     {s.subtitle}\n     › {s.angle}"
+        subtitle = _wrap(s.subtitle, indent=5, width=term_width)
+        angle = _wrap(s.angle, indent=7, width=term_width)
+        title = f"{s.title}\n     {subtitle}\n     › {angle}"
         choices.append(questionary.Choice(title=title, value=s))
     choices.append(questionary.Separator("─" * 50))
     choices.append(questionary.Choice(title="✎  Edit one of the above", value=_SENTINEL_EDIT))

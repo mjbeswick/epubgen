@@ -34,9 +34,9 @@ class Outline(BaseModel):
 
 
 class RefinedTopic(BaseModel):
-    title: str = Field(min_length=3, max_length=120)
-    subtitle: str = Field(min_length=5, max_length=180)
-    angle: str = Field(min_length=10, max_length=240)
+    title: str = Field(min_length=3, max_length=80)
+    subtitle: str = Field(min_length=5, max_length=120)
+    angle: str = Field(min_length=10, max_length=160)
 
 
 class TopicSuggestions(BaseModel):

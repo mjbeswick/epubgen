@@ -56,6 +56,21 @@ async def test_refine_description_returns_string():
         anthropic_client.set_client(None)
 
 
+def test_wizard_wrap_breaks_long_lines():
+    from epubgen.wizard import _wrap
+
+    long_angle = (
+        "A working programmer's tour of QBASIC focused on writing useful, "
+        "runnable software today, file I/O, screen modes, and SUBs without nostalgia."
+    )
+    out = _wrap(long_angle, indent=7, width=60)
+    assert "\n" in out
+    for line in out.split("\n"):
+        # First line has no padding; continuation lines pre-padded with 7 spaces.
+        bare = line.lstrip(" ")
+        assert len(bare) <= 60
+
+
 def test_description_metadata_yaml_includes_description():
     from epubgen.assemble import metadata_yaml
     from epubgen.schema import Beat, Chapter, Outline

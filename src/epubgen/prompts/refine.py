@@ -40,11 +40,11 @@ def build_refine_messages(style: Style, topic: str, hint: str | None = None) -> 
         f"Topic from the user: {topic!r}\n\n"
         "Propose three distinct framings for a book on this topic, in the voice of the "
         f"{style.name} style above. For each, give:\n"
-        "- title: a strong book title (≤8 words preferred)\n"
-        "- subtitle: a clarifying subtitle (one phrase)\n"
-        "- angle: one sentence on what makes this framing different from the others.\n\n"
-        "Make the three meaningfully different in scope or stance — not three rewordings "
-        f"of the same idea. Use the emit_titles tool.{hint_clause}"
+        "- title: a strong book title (≤8 words, ≤60 chars).\n"
+        "- subtitle: a clarifying subtitle (one phrase, ≤90 chars).\n"
+        "- angle: ONE short sentence (≤140 chars) on what makes this framing distinct.\n\n"
+        "Be terse. Make the three meaningfully different in scope or stance — not three "
+        f"rewordings of the same idea. Use the emit_titles tool.{hint_clause}"
     )
     return {
         "system": [
