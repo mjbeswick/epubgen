@@ -38,9 +38,11 @@ async def _call_outline(model: str, payload: dict[str, Any]) -> dict[str, Any]:
     return _extract_tool_input(resp)
 
 
-async def generate_outline(style: Style, opts: Options) -> Outline:
-    log.info("requesting outline from model")
-    payload = build_outline_messages(style, opts)
+async def generate_outline(
+    style: Style, opts: Options, *, hint: str | None = None
+) -> Outline:
+    log.info("requesting outline from model (hint=%r)", hint)
+    payload = build_outline_messages(style, opts, hint=hint)
     raw = await _call_outline(opts.model, payload)
     raw["topic"] = opts.topic
     raw["style"] = style.name
@@ -51,7 +53,7 @@ async def generate_outline(style: Style, opts: Options) -> Outline:
     except ValidationError as first_err:
         log.warning("outline failed validation, requesting repair: %s", first_err)
         repair_payload = build_repair_messages(
-            style, opts, json.dumps(raw, indent=2), str(first_err)
+            style, opts, json.dumps(raw, indent=2), str(first_err), hint=hint
         )
         retry_raw = await _call_outline(opts.model, repair_payload)
         retry_raw["topic"] = opts.topic

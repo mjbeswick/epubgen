@@ -75,11 +75,16 @@ OUTLINE_TOOL = {
 }
 
 
-def build_outline_messages(style: Style, opts: Options) -> dict[str, Any]:
+def build_outline_messages(
+    style: Style, opts: Options, hint: str | None = None
+) -> dict[str, Any]:
     chapters_clause = (
         f"Aim for exactly {opts.chapters} chapters."
         if opts.chapters
-        else "Choose a chapter count appropriate to the topic (typically 8–14)."
+        else "Choose a chapter count appropriate to the topic and style — typically 6–16."
+    )
+    hint_clause = (
+        f"\nAdditional steering from the user: {hint!r}" if hint else ""
     )
     title_clause = ""
     if opts.preferred_title:
@@ -111,6 +116,7 @@ def build_outline_messages(style: Style, opts: Options) -> dict[str, Any]:
         "(e.g. 'photo-realistic shot of a server rack with overlaid heat map', "
         "'stylized illustration of a CPU pipeline'). Use SPARINGLY — only when "
         "an image adds something diagrams/charts cannot. Each image costs ~$0.04.\n"
+        f"{hint_clause}\n"
         "Use the emit_outline tool to return the outline."
     )
     return {
@@ -136,9 +142,9 @@ def build_outline_messages(style: Style, opts: Options) -> dict[str, Any]:
 
 
 def build_repair_messages(
-    style: Style, opts: Options, prior_json: str, error: str
+    style: Style, opts: Options, prior_json: str, error: str, hint: str | None = None
 ) -> dict[str, Any]:
-    base = build_outline_messages(style, opts)
+    base = build_outline_messages(style, opts, hint=hint)
     base["messages"] = [
         {"role": "user", "content": base["messages"][0]["content"]},
         {"role": "assistant", "content": [{"type": "text", "text": prior_json}]},
