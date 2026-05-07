@@ -26,6 +26,10 @@ def configure_logging(*, verbose: bool, log_file: Path | None) -> None:
     root.handlers.clear()
     root.setLevel(logging.DEBUG)
 
+    # Stderr level: quiet by default (WARNING and above only); -v turns on DEBUG.
+    # Phase spinners + progress bars give the user-facing signal; INFO log lines
+    # were duplicating that.
+    stderr_level = logging.DEBUG if verbose else logging.WARNING
     if sys.stderr.isatty():
         # RichHandler cooperates with Live/status displays so spinners aren't torn.
         try:
@@ -40,16 +44,16 @@ def configure_logging(*, verbose: bool, log_file: Path | None) -> None:
                 markup=False,
                 rich_tracebacks=True,
             )
-            rich_handler.setLevel(logging.DEBUG if verbose else logging.INFO)
+            rich_handler.setLevel(stderr_level)
             root.addHandler(rich_handler)
         except ImportError:
             stderr = logging.StreamHandler(sys.stderr)
-            stderr.setLevel(logging.DEBUG if verbose else logging.INFO)
+            stderr.setLevel(stderr_level)
             stderr.setFormatter(logging.Formatter(_FMT, datefmt=_DATEFMT))
             root.addHandler(stderr)
     else:
         stderr = logging.StreamHandler(sys.stderr)
-        stderr.setLevel(logging.DEBUG if verbose else logging.INFO)
+        stderr.setLevel(stderr_level)
         stderr.setFormatter(logging.Formatter(_FMT, datefmt=_DATEFMT))
         root.addHandler(stderr)
 
