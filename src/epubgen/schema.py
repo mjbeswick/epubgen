@@ -52,7 +52,7 @@ class Options(BaseModel):
     words: int | None = None
     model: str = "claude-opus-4-7"
     concurrency: int = 3
-    ereader: bool = False
+    ereader: bool = True
     no_cover: bool = False
     no_diagrams: bool = False
     no_images: bool = False

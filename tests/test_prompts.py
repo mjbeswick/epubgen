@@ -83,7 +83,7 @@ def test_chapter_messages_cache_breakpoints():
 def test_ereader_clause_only_when_ereader():
     style = load_style("oreilly")
     outline = _outline()
-    plain = build_chapter_messages(style, outline, outline.chapters[0], _opts())
+    plain = build_chapter_messages(style, outline, outline.chapters[0], _opts(ereader=False))
     ereader = build_chapter_messages(style, outline, outline.chapters[0], _opts(ereader=True))
     assert "≤60" not in plain["messages"][0]["content"]
     assert "≤60" in ereader["messages"][0]["content"]

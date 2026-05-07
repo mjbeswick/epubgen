@@ -12,7 +12,7 @@ epubgen wizard
 - **10 publishing-voice styles** — `oreilly`, `manning`, `pragprog`, `nostarch`, `apress`, `for-dummies`, `cheatsheet`, `pocket-reference`, plus `academic` and `penguin-classics` as extras.
 - **Interactive wizard** — `questionary` flow that picks a style, brainstorms three title framings (with hint-driven regeneration), drafts a back-cover description, and threads everything into the outline.
 - **Rich content** — code (highlighted), tables, math (`$...$` / `$$...$$` → MathML), Mermaid diagrams, Vega-Lite charts, and AI-generated images, all from fenced blocks the model emits.
-- **Kindle mode** — `--kindle` constrains code line width, picks a grayscale-legible syntax theme, switches figures to PNG, and emits `.azw3` alongside if `kindlepreviewer` is on PATH.
+- **E-reader mode** — `--ereader` (default **on**) tunes for ~6" reflowable screens (Kindle/Kobo/KOReader/Pocketbook): code lines ≤60 chars, monochrome syntax theme, AZW3 output if `kindlepreviewer` is present. Pass `--no-ereader` for tablet/desktop output. The Kindle-specific PNG figure conversion is gone — SVG works on every modern reader.
 - **Prompt caching** — style guide and outline cached at two `cache_control` breakpoints; per-chapter calls reuse the prefix at ~10% token cost.
 - **Resumable** — chapters written atomically to `<out>.work/ch-NN.md`; re-running picks up where it left off. `options.json` is frozen on first run; mismatches refuse to resume unless `--force`.
 - **Concurrent** — async chapter generation with a small pool (default 3).
@@ -76,7 +76,7 @@ epubgen doctor               Preflight dependency check
 -W, --words INTEGER        Target words per chapter (default: 3000)
 -m, --model TEXT           Anthropic model (default: claude-opus-4-7)
     --concurrency INTEGER  Parallel chapters (default: 3)
-    --kindle               Tune prompts/CSS for Kindle; emit .azw3 if available
+    --ereader/--no-ereader Tune for ~6" e-readers (default: on). --kindle is an alias.
     --no-cover             Skip cover generation
     --no-diagrams          Skip all figure rendering (mermaid+chart+image)
     --no-images            Skip generated images only (keep mermaid/charts)
@@ -113,8 +113,8 @@ The model populates a structured outline per chapter, then writes each chapter r
 | Code | <code>```python … ```</code> | pandoc + skylighting | Inline highlighted blocks |
 | Tables | GitHub-style markdown | pandoc | Native EPUB tables |
 | Math | `$inline$`, `$$display$$` | pandoc `--mathml` | Native MathML |
-| Diagrams | <code>```mermaid … ```</code> | `mmdc` | SVG (or PNG with `--kindle`) |
-| Charts | <code>```vegalite … ```</code> | `vl-convert` | SVG (or PNG with `--kindle`) |
+| Diagrams | <code>```mermaid … ```</code> | `mmdc` | SVG |
+| Charts | <code>```vegalite … ```</code> | `vl-convert` | SVG |
 | Images | <code>```image … ```</code> | OpenAI gpt-image-1 | PNG, ~$0.04 each |
 
 Each renderer fails open: missing dependencies leave the fenced block as code, still readable in the EPUB.
@@ -145,7 +145,7 @@ Adding a new style is two files: `src/epubgen/styles/<name>.md` (with `## Voice`
 3. **Figures** — post-pass scans every chapter for fenced `mermaid` / `vegalite` / `image` blocks, renders each, rewrites the markdown to image references.
 4. **Cover** — OpenAI gpt-image-1 if `OPENAI_API_KEY` is set, otherwise a deterministic per-style SVG.
 5. **Assemble** — pandoc converts the markdown chapters into a single EPUB3 with TOC, per-style CSS, embedded cover, native MathML.
-6. **Optional Kindle** — if `--kindle` and `kindlepreviewer` is on PATH, also emits `.azw3` alongside.
+6. **Optional AZW3** — if `--ereader` (default on) and `kindlepreviewer` is on PATH, also emits `.azw3` alongside.
 
 ## Resuming
 

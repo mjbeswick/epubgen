@@ -104,12 +104,13 @@ def generate(
     ereader: Annotated[
         bool,
         typer.Option(
-            "--ereader",
-            "--kindle",  # backward-compat alias
-            help="Tune for ~6\" e-readers (Kindle/Kobo/KOReader): "
-            "tighter code lines, monochrome highlight, AZW3 if kindlepreviewer present",
+            "--ereader/--no-ereader",
+            "--kindle/--no-kindle",  # backward-compat alias
+            help="Tune for ~6\" e-readers — Kindle/Kobo/KOReader (default: on). "
+            "Tighter code lines, monochrome highlight, AZW3 if kindlepreviewer present. "
+            "Use --no-ereader for tablet/desktop output.",
         ),
-    ] = False,
+    ] = True,
     no_cover: Annotated[bool, typer.Option("--no-cover", help="Skip cover generation")] = False,
     no_diagrams: Annotated[
         bool,
