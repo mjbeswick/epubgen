@@ -1,4 +1,4 @@
-# Style: No Starch — Project-Driven
+# Style: Project-Driven Hands-On
 
 ## Voice
 Hands-on, build-along, friendly. Each chapter advances a single concrete project the reader is constructing. Use "we" — author and reader build together.

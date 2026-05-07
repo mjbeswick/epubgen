@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from epubgen.prompts._shared import ANTI_ATTRIBUTION
 from epubgen.schema import RefinedTopic
 from epubgen.styles import Style
 
@@ -47,7 +48,9 @@ def build_description_messages(
                 "type": "text",
                 "text": (
                     "You write back-cover descriptions for technical books. "
-                    "Return your answer by calling the emit_description tool — never plain text."
+                    "Return your answer by calling the emit_description tool "
+                    "— never plain text.\n\n"
+                    + ANTI_ATTRIBUTION
                 ),
             },
         ],

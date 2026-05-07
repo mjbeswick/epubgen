@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from epubgen.prompts._shared import ANTI_ATTRIBUTION
 from epubgen.schema import Chapter, Options, Outline
 from epubgen.styles import Style
 
@@ -69,7 +70,8 @@ def build_chapter_messages(
                 "text": (
                     "You write one chapter at a time. Match the style guide exactly. "
                     "Don't repeat material from other chapters; "
-                    "reference them by title when useful."
+                    "reference them by title when useful.\n\n"
+                    + ANTI_ATTRIBUTION
                 ),
             },
         ],

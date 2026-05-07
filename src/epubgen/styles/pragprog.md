@@ -1,4 +1,4 @@
-# Style: Pragmatic Programmers
+# Style: Opinionated Peer-to-Peer
 
 ## Voice
 Direct, opinionated, peer-to-peer. Treat the reader as a working professional capable of disagreeing. State preferences plainly ("Prefer X over Y because..."); back them with reasoning, not appeals to authority.

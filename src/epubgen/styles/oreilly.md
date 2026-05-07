@@ -1,4 +1,4 @@
-# Style: O'Reilly Technical
+# Style: Pragmatic Technical (Code-Forward)
 
 ## Voice
 Pragmatic, second-person, code-forward. You're writing for an intermediate practitioner who already knows the basics of the language or domain. Don't condescend, don't over-explain, but never assume the reader has read a previous chapter unless told to. Sentences are workmanlike; metaphors are sparing and load-bearing when used.

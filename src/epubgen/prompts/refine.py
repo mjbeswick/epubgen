@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from epubgen.prompts._shared import ANTI_ATTRIBUTION
 from epubgen.styles import Style
 
 REFINE_TOOL = {
@@ -57,7 +58,8 @@ def build_refine_messages(style: Style, topic: str, hint: str | None = None) -> 
                 "type": "text",
                 "text": (
                     "You help authors find the right framing for a book. "
-                    "Return your answer by calling the emit_titles tool — never plain text."
+                    "Return your answer by calling the emit_titles tool — never plain text.\n\n"
+                    + ANTI_ATTRIBUTION
                 ),
             },
         ],

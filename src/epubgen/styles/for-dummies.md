@@ -1,4 +1,4 @@
-# Style: For Dummies
+# Style: Approachable Beginner's Guide
 
 ## Voice
 Friendly, encouraging, second-person. Assume zero prior knowledge of the topic. Define every term on first use. Light, warm humor is welcome; never condescending.

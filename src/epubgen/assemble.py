@@ -106,6 +106,11 @@ def assemble(
     if missing:
         raise PandocError(f"missing chapter files: {missing}")
 
+    # Prepend colophon front matter if present (pipeline writes it before assemble).
+    colophon = workdir / "colophon.md"
+    if colophon.exists():
+        chapter_files = [colophon, *chapter_files]
+
     opts.out.parent.mkdir(parents=True, exist_ok=True)
     extra_args = build_pandoc_extra_args(
         metadata_file=metadata_file, css=css, cover=cover, ereader=opts.ereader

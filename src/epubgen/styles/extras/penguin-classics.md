@@ -1,4 +1,4 @@
-# Style: Penguin Classics
+# Style: Literary (Long-Form Prose)
 
 ## Voice
 Literary, third-person omniscient (or close third). Long-form prose. Not appropriate for technical books — included as an experimental style.

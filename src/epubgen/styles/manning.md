@@ -1,10 +1,10 @@
-# Style: Manning In Action
+# Style: Scenario-Driven (In-Action)
 
 ## Voice
 Conversational, scenario-driven, second-person. The reader is a working developer being walked through a realistic situation. Use "we" when collaborating on a problem, "you" when handing off a decision. Light humor is fine; never sarcasm.
 
 ## Structure
-- Open each chapter by dropping the reader into a scenario ("Your team needs to...") before any theory.
+- Open each chapter by dropping the reader into a real-world scenario ("Your team needs to...") before any theory.
 - H2 sections build the solution incrementally.
 - Use numbered figures referenced inline ("Figure 4.2 shows…").
 - Close with `## Summary` (bullets recapping what the reader can now do).

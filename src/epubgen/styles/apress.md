@@ -1,4 +1,4 @@
-# Style: Apress — Reference-Leaning
+# Style: Reference-Leaning Manual
 
 ## Voice
 Thorough, precise, neutral. Closer to a manual than a tutorial; the reader may be searching for a specific topic and reading non-linearly. State facts plainly; minimize first-person.

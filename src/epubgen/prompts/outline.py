@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from epubgen.prompts._shared import ANTI_ATTRIBUTION
 from epubgen.schema import Options
 from epubgen.styles import Style
 
@@ -131,7 +132,8 @@ def build_outline_messages(
                 "text": (
                     "You design book outlines. "
                     "Match the voice and structure of the style guide above. "
-                    "Return your answer by calling the emit_outline tool — never plain text."
+                    "Return your answer by calling the emit_outline tool — never plain text.\n\n"
+                    + ANTI_ATTRIBUTION
                 ),
             },
         ],

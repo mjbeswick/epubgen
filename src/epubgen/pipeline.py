@@ -5,6 +5,7 @@ from pathlib import Path
 
 from epubgen.assemble import assemble, maybe_make_azw3
 from epubgen.chapters import generate_all
+from epubgen.colophon import write_colophon
 from epubgen.cover import existing_cover, generate_cover
 from epubgen.diagrams import render_all
 from epubgen.logsetup import get_logger
@@ -71,6 +72,8 @@ async def run_async(opts: Options) -> Path:
                 cover_path = generate_cover(outline, style, workdir, prompt=prompt)
         else:
             log.info("reusing existing cover: %s", cover_path)
+
+    write_colophon(outline, style.name, author=opts.author, workdir=workdir)
 
     with phase(f"Assembling EPUB → {opts.out}"):
         epub = assemble(
