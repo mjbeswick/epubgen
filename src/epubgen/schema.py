@@ -52,7 +52,7 @@ class Options(BaseModel):
     words: int = 3000
     model: str = "claude-opus-4-7"
     concurrency: int = 3
-    kindle: bool = False
+    ereader: bool = False
     no_cover: bool = False
     no_diagrams: bool = False
     no_images: bool = False
@@ -74,7 +74,7 @@ class Options(BaseModel):
             "chapters": self.chapters,
             "words": self.words,
             "model": self.model,
-            "kindle": self.kindle,
+            "ereader": self.ereader,
             "author": self.author,
             "preferred_title": self.preferred_title,
             "preferred_subtitle": self.preferred_subtitle,

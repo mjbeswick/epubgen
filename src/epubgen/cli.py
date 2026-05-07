@@ -95,8 +95,14 @@ def generate(
     words: Annotated[int, typer.Option("--words", "-W", help="Target words per chapter")] = 3000,
     model: Annotated[str, typer.Option("--model", "-m")] = "claude-opus-4-7",
     concurrency: Annotated[int, typer.Option("--concurrency")] = 3,
-    kindle: Annotated[
-        bool, typer.Option("--kindle", help="Tune for Kindle; emit .azw3 if available")
+    ereader: Annotated[
+        bool,
+        typer.Option(
+            "--ereader",
+            "--kindle",  # backward-compat alias
+            help="Tune for ~6\" e-readers (Kindle/Kobo/KOReader): "
+            "tighter code lines, monochrome highlight, AZW3 if kindlepreviewer present",
+        ),
     ] = False,
     no_cover: Annotated[bool, typer.Option("--no-cover", help="Skip cover generation")] = False,
     no_diagrams: Annotated[
@@ -151,7 +157,7 @@ def generate(
         words=words,
         model=model,
         concurrency=concurrency,
-        kindle=kindle,
+        ereader=ereader,
         no_cover=no_cover,
         no_diagrams=no_diagrams,
         no_images=no_images,

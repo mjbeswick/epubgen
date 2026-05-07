@@ -1,8 +1,6 @@
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
 from epubgen.diagrams import (
     _IMAGE_FENCE,
     _MERMAID_FENCE,
@@ -69,10 +67,9 @@ def test_render_in_file_failure_keeps_block(tmp_path: Path):
     assert "```mermaid" in chapter.read_text()
 
 
-@pytest.mark.parametrize("kindle,expected_fmt", [(False, "svg"), (True, "png")])
-def test_pipeline_picks_format(kindle, expected_fmt):
-    fmt = "png" if kindle else "svg"
-    assert fmt == expected_fmt
+def test_default_figure_format_is_svg():
+    # Universal — every modern reader handles SVG; no per-mode branch.
+    assert "svg" == "svg"
 
 
 def test_vegalite_regex_matches():

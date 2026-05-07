@@ -21,10 +21,10 @@ def build_chapter_messages(
     diagrams = "\n".join(f"- {d}" for d in chapter.diagrams) or "(none)"
     charts = "\n".join(f"- {c}" for c in chapter.charts) or "(none)"
     images = "\n".join(f"- {i}" for i in chapter.images) or "(none)"
-    kindle_clause = (
-        "\n\nKindle constraint: code lines must be ≤60 characters; refactor or wrap rather "
-        "than truncating. Avoid wide tables (≤4 columns)."
-        if opts.kindle
+    ereader_clause = (
+        "\n\nE-reader constraint (≈6\" screens, reflowable): code lines must be ≤60 characters; "
+        "refactor or wrap rather than truncating. Tables ≤4 columns."
+        if opts.ereader
         else ""
     )
     user = (
@@ -47,7 +47,7 @@ def build_chapter_messages(
         "(tables and diagrams substitute for prose, not in addition to it).\n"
         "Output Markdown only. Begin with `# {title}` as the H1. "
         "Do not include front-matter, commentary, or surrounding prose."
-        f"{kindle_clause}"
+        f"{ereader_clause}"
     )
     return {
         "system": [

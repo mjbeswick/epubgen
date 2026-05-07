@@ -41,7 +41,7 @@ class State:
     workdir: Path | None = None
     outline: Outline | None = None
     outline_hint: str | None = None
-    kindle: bool = True
+    ereader: bool = True
 
     def to_options(self) -> Options:
         assert self.topic and self.style and self.out_path and self.workdir
@@ -50,7 +50,7 @@ class State:
             style=self.style,
             out=self.out_path,
             workdir=self.workdir,
-            kindle=self.kindle,
+            ereader=self.ereader,
             preferred_title=self.refined.title if self.refined else None,
             preferred_subtitle=self.refined.subtitle if self.refined else None,
             description=self.description,
@@ -67,7 +67,7 @@ _STEP_FIELDS: dict[str, tuple[str, ...]] = {
     "description": ("description",),
     "out_path": ("out_path", "workdir"),
     "outline": ("outline", "outline_hint"),
-    "kindle": ("kindle",),
+    "ereader": ("ereader",),
     "confirm": (),
 }
 
@@ -446,21 +446,27 @@ def step_outline(state: State, allow_back: bool) -> StepResult:
             continue
 
 
-def step_kindle(state: State, allow_back: bool) -> StepResult:
+def step_ereader(state: State, allow_back: bool) -> StepResult:
     choices: list[questionary.Choice | questionary.Separator] = [
-        questionary.Choice(title="Yes — tune for Kindle", value=True),
-        questionary.Choice(title="No — standard EPUB", value=False),
+        questionary.Choice(
+            title="Yes — tune for ~6\" e-readers (Kindle / Kobo / KOReader / Pocketbook)",
+            value=True,
+        ),
+        questionary.Choice(
+            title="No — standard EPUB (tablet / desktop / iBooks / Calibre)",
+            value=False,
+        ),
     ]
     choices.extend(_navchoices(allow_back=allow_back))
     answer = questionary.select(
-        "Optimize for Kindle?",
+        "Optimize for an e-reader?",
         choices=choices,
-        default=state.kindle,
+        default=state.ereader,
     ).ask()
     decision = _decide(answer, allow_back)
     if decision is not None:
         return decision
-    state.kindle = bool(answer)
+    state.ereader = bool(answer)
     return "next"
 
 
@@ -471,7 +477,7 @@ def step_confirm(state: State, allow_back: bool) -> StepResult:
         f"[bold]Title:[/bold] {title}\n"
         f"[bold]Style:[/bold] {state.style}\n"
         f"[bold]Chapters:[/bold] {chapters}\n"
-        f"[bold]Kindle:[/bold] {'yes' if state.kindle else 'no'}\n"
+        f"[bold]E-reader tuned:[/bold] {'yes' if state.ereader else 'no'}\n"
         f"[bold]Output:[/bold] {state.out_path}"
     )
     _console.print()
@@ -500,7 +506,7 @@ _STEPS: list[tuple[str, callable]] = [
     ("description", step_description),
     ("out_path", step_out_path),
     ("outline", step_outline),
-    ("kindle", step_kindle),
+    ("ereader", step_ereader),
     ("confirm", step_confirm),
 ]
 

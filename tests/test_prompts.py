@@ -80,13 +80,13 @@ def test_chapter_messages_cache_breakpoints():
     assert isinstance(user, str)
 
 
-def test_kindle_clause_only_when_kindle():
+def test_ereader_clause_only_when_ereader():
     style = load_style("oreilly")
     outline = _outline()
     plain = build_chapter_messages(style, outline, outline.chapters[0], _opts())
-    kindle = build_chapter_messages(style, outline, outline.chapters[0], _opts(kindle=True))
+    ereader = build_chapter_messages(style, outline, outline.chapters[0], _opts(ereader=True))
     assert "≤60" not in plain["messages"][0]["content"]
-    assert "≤60" in kindle["messages"][0]["content"]
+    assert "≤60" in ereader["messages"][0]["content"]
 
 
 def test_canonical_outline_is_byte_stable():

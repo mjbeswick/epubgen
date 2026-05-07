@@ -55,9 +55,9 @@ def build_pandoc_extra_args(
     metadata_file: Path,
     css: Path,
     cover: Path | None,
-    kindle: bool,
+    ereader: bool,
 ) -> list[str]:
-    highlight = "monochrome" if kindle else "pygments"
+    highlight = "monochrome" if ereader else "pygments"
     args = [
         f"--metadata-file={metadata_file}",
         f"--css={css}",
@@ -108,7 +108,7 @@ def assemble(
 
     opts.out.parent.mkdir(parents=True, exist_ok=True)
     extra_args = build_pandoc_extra_args(
-        metadata_file=metadata_file, css=css, cover=cover, kindle=opts.kindle
+        metadata_file=metadata_file, css=css, cover=cover, ereader=opts.ereader
     )
     argv = build_pandoc_argv(out=opts.out, extra_args=extra_args, chapter_files=chapter_files)
     log.debug("pandoc argv: %s", argv)

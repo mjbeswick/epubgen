@@ -40,7 +40,8 @@ async def run_async(opts: Options) -> Path:
 
     if not opts.no_diagrams:
         chapter_files = [chapter_path(workdir, ch.number) for ch in outline.chapters]
-        fmt = "png" if opts.kindle else "svg"
+        # SVG always — every modern reader handles it; smaller files; scales better.
+        fmt = "svg"
         skip = frozenset({"image"}) if opts.no_images else frozenset()
         # Count blocks first so we can show a real progress bar.
         from epubgen.diagrams import _find_blocks, render_in_file
@@ -75,8 +76,8 @@ async def run_async(opts: Options) -> Path:
         epub = assemble(
             outline=outline, style=style, opts=opts, workdir=workdir, cover=cover_path
         )
-    if opts.kindle:
-        with phase("Converting to AZW3"):
+    if opts.ereader:
+        with phase("Converting to AZW3 (if kindlepreviewer present)"):
             azw3 = maybe_make_azw3(epub)
         if azw3:
             log.info("emitted azw3: %s", azw3)

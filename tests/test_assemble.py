@@ -39,7 +39,7 @@ def test_pandoc_args_default_highlight():
         metadata_file=Path("/tmp/m.yaml"),
         css=Path("/tmp/s.css"),
         cover=None,
-        kindle=False,
+        ereader=False,
     )
     assert "--highlight-style=pygments" in args
     assert not any("epub-cover" in a for a in args)
@@ -53,7 +53,7 @@ def test_pandoc_args_kindle_switches_highlight_and_includes_cover():
         metadata_file=Path("/tmp/m.yaml"),
         css=Path("/tmp/s.css"),
         cover=Path("/tmp/cover.svg"),
-        kindle=True,
+        ereader=True,
     )
     assert "--highlight-style=monochrome" in args
     assert "--epub-cover-image=/tmp/cover.svg" in args
