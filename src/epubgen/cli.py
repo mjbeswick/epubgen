@@ -205,9 +205,71 @@ def wizard(
     _run(opts)
 
 
+def _resolve_resume_workdir(arg: Path | None) -> Path | None:
+    """Find a workdir to resume from a flexible argument.
+
+    Accepts: a workdir path, an .epub path (workdir derived as <epub>.work),
+    a directory to search, or None (search cwd). Prompts interactively if
+    multiple candidates are found. Returns None on user cancel; raises typer.Exit
+    if no candidates exist.
+    """
+    # Direct .epub path → derive its workdir.
+    if arg is not None and arg.suffix == ".epub":
+        derived = Path(str(arg) + ".work")
+        if (derived / "options.json").exists():
+            return derived
+        typer.secho(
+            f"no options.json in {derived} (derived from {arg})",
+            fg=typer.colors.RED, err=True,
+        )
+        raise typer.Exit(EXIT_USER)
+
+    # Direct workdir hit.
+    direct = arg or Path(".")
+    if (direct / "options.json").exists():
+        return direct
+
+    # Otherwise treat the argument as a directory to search for *.work/.
+    search_root = direct if direct.is_dir() else Path(".")
+    candidates = sorted(
+        p for p in search_root.glob("*.work") if (p / "options.json").exists()
+    )
+    if not candidates:
+        typer.secho(
+            f"no resumable workdir found at {direct} "
+            f"(looked for options.json or *.work/options.json)",
+            fg=typer.colors.RED, err=True,
+        )
+        raise typer.Exit(EXIT_USER)
+    if len(candidates) == 1:
+        typer.secho(f"resuming {candidates[0]}", fg=typer.colors.CYAN, err=True)
+        return candidates[0]
+    # Multiple — pick interactively if we have a TTY, otherwise list and bail.
+    if not sys.stdin.isatty():
+        typer.secho(
+            f"multiple resumable workdirs in {search_root}; specify one:",
+            fg=typer.colors.RED, err=True,
+        )
+        for c in candidates:
+            typer.echo(f"  {c}", err=True)
+        raise typer.Exit(EXIT_USER)
+    import questionary
+
+    picked = questionary.select(
+        "Multiple resumable workdirs — which one?",
+        choices=[questionary.Choice(title=str(c), value=c) for c in candidates],
+    ).ask()
+    return picked
+
+
 @app.command()
 def resume(
-    workdir: Annotated[Path, typer.Argument(help="Work dir of an interrupted run")],
+    workdir: Annotated[
+        Path | None,
+        typer.Argument(
+            help="Work dir, .epub path, or a directory to search (default: cwd)",
+        ),
+    ] = None,
     out: Annotated[Path | None, typer.Option("--out", "-o")] = None,
     verbose: Annotated[bool, typer.Option("--verbose", "-v")] = False,
     log: Annotated[bool, typer.Option("--log")] = False,
@@ -220,13 +282,14 @@ def resume(
         typer.secho(f"📝 logging to {resolved_log}", fg=typer.colors.CYAN, err=True)
     import json
 
-    options_path = workdir / "options.json"
-    if not options_path.exists():
-        typer.secho(f"no options.json in {workdir}", fg=typer.colors.RED, err=True)
+    resolved = _resolve_resume_workdir(workdir)
+    if resolved is None:
+        typer.secho("cancelled", fg=typer.colors.YELLOW, err=True)
         raise typer.Exit(EXIT_USER)
-    frozen = json.loads(options_path.read_text())
+
+    frozen = json.loads((resolved / "options.json").read_text())
     out_path = out or Path(f"./{slugify(frozen['topic'])}.epub")
-    opts = Options(out=out_path, workdir=workdir, **frozen)
+    opts = Options(out=out_path, workdir=resolved, **frozen)
     _run(opts)
 
 
