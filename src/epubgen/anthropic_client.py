@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any, Protocol
 
 from epubgen.config import require_api_key
+from epubgen.costs import get_tally
 from epubgen.errors import ApiError
 from epubgen.logsetup import get_logger
 
@@ -61,4 +62,5 @@ async def create_message(**kwargs: Any) -> Any:
             getattr(usage, "cache_creation_input_tokens", "?"),
             getattr(usage, "cache_read_input_tokens", "?"),
         )
+        get_tally().record_usage(model, usage)
     return resp

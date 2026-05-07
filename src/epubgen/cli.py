@@ -7,6 +7,7 @@ from typing import Annotated
 import typer
 
 from epubgen import pipeline
+from epubgen.costs import get_tally
 from epubgen.doctor import fatal_checks, format_checks, run_checks
 from epubgen.errors import (
     ApiError,
@@ -55,6 +56,8 @@ def _run(opts: Options) -> None:
     try:
         out = pipeline.run(opts)
         typer.secho(f"✓ wrote {out}", fg=typer.colors.GREEN, err=True)
+        for line in get_tally().summary_lines():
+            typer.secho(line, err=True)
     except ConfigError as e:
         log.error("config error: %s", e, exc_info=True)
         typer.secho(f"config: {e}", fg=typer.colors.RED, err=True)

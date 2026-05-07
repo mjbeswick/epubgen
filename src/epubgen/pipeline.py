@@ -6,6 +6,7 @@ from pathlib import Path
 from epubgen.assemble import assemble, maybe_make_azw3
 from epubgen.chapters import generate_all
 from epubgen.colophon import write_colophon
+from epubgen.costs import reset_tally
 from epubgen.cover import existing_cover, generate_cover
 from epubgen.diagrams import render_all
 from epubgen.logsetup import get_logger
@@ -20,6 +21,7 @@ log = get_logger("pipeline")
 
 
 async def run_async(opts: Options) -> Path:
+    reset_tally(model=opts.model)
     log.info("loading style %s", opts.style)
     style = load_style(opts.style)
     workdir = ensure_workdir(opts.workdir)

@@ -75,17 +75,20 @@ def progress(total: int) -> Any:
         yield _PlainProgress(total)
         return
 
+    from epubgen.costs import get_tally
+
     p = Progress(
         SpinnerColumn(style="cyan"),
         TextColumn("{task.description}"),
         BarColumn(),
         TextColumn("[dim]{task.completed}/{task.total}[/dim]"),
+        TextColumn("{task.fields[cost]}"),
         TimeElapsedColumn(),
         console=_console,
         transient=False,
         refresh_per_second=8,
     )
-    overall = p.add_task("[bold cyan]chapters", total=total)
+    overall = p.add_task("[bold cyan]chapters", total=total, cost="")
     sub: dict[int, int] = {}
 
     class _RichProgress:
@@ -104,6 +107,12 @@ def progress(total: int) -> Any:
                 if n in sub:
                     p.remove_task(sub.pop(n))
                 p.advance(overall, 1)
+                tally = get_tally()
+                cost_str = (
+                    f"[green]${tally.total_usd:.3f}[/green] "
+                    f"[dim]({tally.total_tokens:,} tok)[/dim]"
+                )
+                p.update(overall, cost=cost_str)
                 tail = ""
                 if stats and stats.get("output_tokens"):
                     tail = f" ({stats['output_tokens']} tok)"

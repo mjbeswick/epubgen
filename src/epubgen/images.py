@@ -4,6 +4,7 @@ import base64
 import os
 from pathlib import Path
 
+from epubgen.costs import get_tally
 from epubgen.logsetup import get_logger
 from epubgen.workdir import atomic_write_bytes
 
@@ -51,6 +52,7 @@ def generate_image(prompt: str, out_path: Path, *, size: str = DEFAULT_SIZE) -> 
             log.warning("openai returned no image data for prompt %r", prompt[:80])
             return False
         atomic_write_bytes(out_path, base64.b64decode(b64))
+        get_tally().record_image()
         log.info("image written: %s", out_path)
         return True
     except Exception as e:
