@@ -17,10 +17,18 @@ from epubgen.workdir import atomic_write_text, chapter_path
 log = get_logger("chapters")
 
 
+_CHAPTER_MAX_TOKENS = 16000
+
+
 def _extract_text(response: Any) -> str:
     parts = [b.text for b in response.content if getattr(b, "type", None) == "text"]
     if not parts:
         raise ApiError("chapter response had no text blocks")
+    if getattr(response, "stop_reason", None) == "max_tokens":
+        log.warning(
+            "chapter response truncated at max_tokens=%d; chapter may be incomplete",
+            _CHAPTER_MAX_TOKENS,
+        )
     return "\n".join(parts).strip() + "\n"
 
 
@@ -28,7 +36,7 @@ async def generate_chapter(
     style: Style, outline: Outline, chapter: Chapter, opts: Options
 ) -> tuple[str, dict[str, int]]:
     payload = build_chapter_messages(style, outline, chapter, opts)
-    resp = await create_message(model=opts.model, max_tokens=8000, **payload)
+    resp = await create_message(model=opts.model, max_tokens=_CHAPTER_MAX_TOKENS, **payload)
     text = _extract_text(resp)
     usage = getattr(resp, "usage", None)
     cache_stats = {

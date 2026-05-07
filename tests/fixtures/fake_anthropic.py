@@ -24,6 +24,7 @@ class FakeUsage:
 class FakeResponse:
     content: list[FakeBlock]
     usage: FakeUsage = field(default_factory=FakeUsage)
+    stop_reason: str = "end_turn"
 
 
 @dataclass

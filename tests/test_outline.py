@@ -62,6 +62,27 @@ async def test_outline_repairs_once():
         anthropic_client.set_client(None)
 
 
+async def test_outline_truncation_raises_clearly():
+    from tests.fixtures.fake_anthropic import FakeBlock, FakeResponse, FakeUsage
+
+    style = load_style("oreilly")
+    truncated = FakeResponse(
+        content=[FakeBlock(type="tool_use", input={"author": "x"})],
+        usage=FakeUsage(output_tokens=16000),
+    )
+    truncated.stop_reason = "max_tokens"
+    fake = FakeAnthropic(handler=lambda _: truncated)
+    anthropic_client.set_client(fake)
+    try:
+        with pytest.raises(Exception) as exc_info:
+            await generate_outline(style, _opts())
+        assert "truncated" in str(exc_info.value).lower()
+        # Should NOT have retried — truncation is unambiguous, no point repairing.
+        assert len(fake.messages.calls) == 1
+    finally:
+        anthropic_client.set_client(None)
+
+
 async def test_outline_raises_after_two_failures():
     style = load_style("oreilly")
     bad = {**VALID_PAYLOAD, "chapters": VALID_PAYLOAD["chapters"][:1]}

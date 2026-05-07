@@ -17,15 +17,24 @@ from epubgen.workdir import atomic_write_text
 log = get_logger("outline")
 
 
+_OUTLINE_MAX_TOKENS = 16000
+
+
 def _extract_tool_input(response: Any) -> dict[str, Any]:
+    stop_reason = getattr(response, "stop_reason", None)
+    if stop_reason == "max_tokens":
+        raise OutlineError(
+            f"outline response truncated at max_tokens={_OUTLINE_MAX_TOKENS}; "
+            "raise the limit or reduce chapter count / outline detail"
+        )
     for block in response.content:
         if getattr(block, "type", None) == "tool_use":
             return block.input  # type: ignore[no-any-return]
-    raise OutlineError("model returned no tool_use block")
+    raise OutlineError(f"model returned no tool_use block (stop_reason={stop_reason!r})")
 
 
 async def _call_outline(model: str, payload: dict[str, Any]) -> dict[str, Any]:
-    resp = await create_message(model=model, max_tokens=4000, **payload)
+    resp = await create_message(model=model, max_tokens=_OUTLINE_MAX_TOKENS, **payload)
     return _extract_tool_input(resp)
 
 
