@@ -511,21 +511,63 @@ _STEPS: list[tuple[str, callable]] = [
 ]
 
 
+def _resume_summary(state: State, step_idx: int) -> str:
+    parts: list[str] = []
+    if state.topic:
+        parts.append(f"topic: {state.topic!r}")
+    if state.style:
+        parts.append(f"style: {state.style}")
+    if state.refined:
+        parts.append(f"title: {state.refined.title!r}")
+    body = " · ".join(parts) if parts else "(no choices yet)"
+    next_step = _STEPS[step_idx][0] if step_idx < len(_STEPS) else "complete"
+    return f"{body}\n  next step: {next_step}"
+
+
+def _maybe_resume() -> tuple[State, int]:
+    from epubgen import wizard_state
+
+    saved = wizard_state.load()
+    if saved is None:
+        return State(), 0
+    state, step_idx = saved
+    _console.print()
+    _console.print("[bold cyan]Found a previous wizard session:[/bold cyan]")
+    _console.print(f"  {_resume_summary(state, step_idx)}")
+    _console.print()
+    answer = questionary.select(
+        "Resume?",
+        choices=[
+            questionary.Choice(title="✓  Resume from where I left off", value="resume"),
+            questionary.Choice(title="✕  Start fresh (discard previous)", value="fresh"),
+        ],
+    ).ask()
+    if answer == "resume":
+        return state, step_idx
+    wizard_state.clear()
+    return State(), 0
+
+
 def run_wizard() -> Options | None:
+    from epubgen import wizard_state
+
     if not sys.stdin.isatty():
         return None
-    state = State()
-    i = 0
+    state, i = _maybe_resume()
     while 0 <= i < len(_STEPS):
         _name, step = _STEPS[i]
         result = step(state, allow_back=(i > 0))
         if result == "next":
             i += 1
+            wizard_state.save(state, i)
         elif result == "back":
             _invalidate_after(state, i - 1)
             i = max(0, i - 1)
+            wizard_state.save(state, i)
         elif result == "cancel":
+            wizard_state.clear()
             return None
+    wizard_state.clear()
     return state.to_options()
 
 
