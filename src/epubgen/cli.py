@@ -67,8 +67,12 @@ def _run(opts: Options) -> None:
         typer.secho(f"outline: {e}", fg=typer.colors.RED, err=True)
         raise typer.Exit(EXIT_OUTLINE) from e
     except ApiError as e:
-        log.error("api error: %s", e, exc_info=True)
+        # If we have a clear hint, the failure is well-understood — skip the
+        # traceback dump (still recorded to --log-file at DEBUG).
+        log.error("api error: %s", e, exc_info=e.hint is None)
         typer.secho(f"api: {e}", fg=typer.colors.RED, err=True)
+        if e.hint:
+            typer.secho(f"  → {e.hint}", fg=typer.colors.YELLOW, err=True)
         raise typer.Exit(EXIT_API) from e
     except PandocError as e:
         log.error("pandoc error: %s", e, exc_info=True)

@@ -36,6 +36,35 @@ def set_client(client: AsyncLike | None) -> None:
     _client = client
 
 
+def _classify_anthropic_error(e: Exception) -> tuple[str, str | None]:
+    """Return (short message, actionable hint) for common Anthropic API errors."""
+    msg = str(e)
+    lower = msg.lower()
+    if "credit balance is too low" in lower or "credit balance" in lower:
+        return (
+            "Anthropic credit balance too low",
+            "Top up at https://console.anthropic.com/settings/billing",
+        )
+    if "authentication_error" in lower or "invalid x-api-key" in lower:
+        return (
+            "ANTHROPIC_API_KEY rejected",
+            "Verify the key at https://console.anthropic.com/settings/keys",
+        )
+    if "rate_limit_error" in lower or "rate limit" in lower:
+        return (
+            "Rate-limited by Anthropic (SDK retries already exhausted)",
+            "Wait a minute, or lower --concurrency",
+        )
+    if "overloaded_error" in lower or "overloaded" in lower:
+        return ("Anthropic API overloaded", "Try again in a few moments")
+    if "permission" in lower or "forbidden" in lower:
+        return (
+            "Anthropic API permission denied",
+            "Check that this API key has access to the requested model",
+        )
+    return (f"anthropic API call failed: {e}", None)
+
+
 async def create_message(**kwargs: Any) -> Any:
     client = get_client()
     model = kwargs.get("model", "?")
@@ -51,8 +80,9 @@ async def create_message(**kwargs: Any) -> Any:
     try:
         resp = await client.messages.create(**kwargs)
     except Exception as e:
+        short, hint = _classify_anthropic_error(e)
         log.error("anthropic call failed: %s: %s", type(e).__name__, e)
-        raise ApiError(f"anthropic API call failed: {e}") from e
+        raise ApiError(short, hint=hint) from e
     usage = getattr(resp, "usage", None)
     if usage is not None:
         log.debug(
