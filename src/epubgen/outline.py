@@ -20,6 +20,28 @@ log = get_logger("outline")
 _OUTLINE_MAX_TOKENS = 16000
 
 
+def _unwrap_outline(raw: dict[str, Any]) -> dict[str, Any]:
+    """Models occasionally nest the payload under an 'outline' (or single) key.
+
+    If the dict looks wrapped — exactly one key whose value is a dict containing
+    'chapters' — flatten it. Idempotent on already-flat payloads.
+    """
+    if "chapters" in raw:
+        return raw
+    if len(raw) == 1:
+        only_value = next(iter(raw.values()))
+        if isinstance(only_value, dict) and "chapters" in only_value:
+            log.warning("model returned a wrapped outline (key=%r); unwrapping", next(iter(raw)))
+            return only_value
+    # Common wrapper key names — accept these even if other top-level keys exist.
+    for wrapper in ("outline", "result", "data"):
+        nested = raw.get(wrapper)
+        if isinstance(nested, dict) and "chapters" in nested:
+            log.warning("model returned a wrapped outline (key=%r); unwrapping", wrapper)
+            return nested
+    return raw
+
+
 def _extract_tool_input(response: Any) -> dict[str, Any]:
     stop_reason = getattr(response, "stop_reason", None)
     if stop_reason == "max_tokens":
@@ -29,7 +51,7 @@ def _extract_tool_input(response: Any) -> dict[str, Any]:
         )
     for block in response.content:
         if getattr(block, "type", None) == "tool_use":
-            return block.input  # type: ignore[no-any-return]
+            return _unwrap_outline(block.input)  # type: ignore[arg-type]
     raise OutlineError(f"model returned no tool_use block (stop_reason={stop_reason!r})")
 
 

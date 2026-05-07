@@ -62,6 +62,33 @@ async def test_outline_repairs_once():
         anthropic_client.set_client(None)
 
 
+async def test_outline_handles_wrapped_payload():
+    style = load_style("oreilly")
+    wrapped = {"outline": VALID_PAYLOAD}
+    fake = FakeAnthropic(handler=lambda _: tool_response(wrapped))
+    anthropic_client.set_client(fake)
+    try:
+        outline = await generate_outline(style, _opts())
+        assert len(outline.chapters) == 4
+        # Was unwrapped on first try — no repair retry.
+        assert len(fake.messages.calls) == 1
+    finally:
+        anthropic_client.set_client(None)
+
+
+async def test_outline_handles_single_key_wrapping():
+    style = load_style("oreilly")
+    wrapped = {"book": VALID_PAYLOAD}  # arbitrary single-key wrapper
+    fake = FakeAnthropic(handler=lambda _: tool_response(wrapped))
+    anthropic_client.set_client(fake)
+    try:
+        outline = await generate_outline(style, _opts())
+        assert len(outline.chapters) == 4
+        assert len(fake.messages.calls) == 1
+    finally:
+        anthropic_client.set_client(None)
+
+
 async def test_outline_truncation_raises_clearly():
     from tests.fixtures.fake_anthropic import FakeBlock, FakeResponse, FakeUsage
 
