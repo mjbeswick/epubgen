@@ -85,7 +85,7 @@ def progress(total: int) -> Any:
         TextColumn("{task.fields[cost]}"),
         TimeElapsedColumn(),
         console=_console,
-        transient=False,
+        transient=True,  # bar + sub-tasks vanish on exit; ✓ log lines persist
         refresh_per_second=8,
     )
     overall = p.add_task("[bold cyan]chapters", total=total, cost="")

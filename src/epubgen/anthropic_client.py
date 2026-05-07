@@ -81,7 +81,10 @@ async def create_message(**kwargs: Any) -> Any:
         resp = await client.messages.create(**kwargs)
     except Exception as e:
         short, hint = _classify_anthropic_error(e)
-        log.error("anthropic call failed: %s: %s", type(e).__name__, e)
+        # Raw SDK error is debug-only; the classified ApiError is the
+        # user-facing surface (cli._run logs that one with full traceback
+        # when no hint is set).
+        log.debug("anthropic call failed: %s: %s", type(e).__name__, e)
         raise ApiError(short, hint=hint) from e
     usage = getattr(resp, "usage", None)
     if usage is not None:
