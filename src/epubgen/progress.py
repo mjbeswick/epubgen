@@ -93,11 +93,12 @@ def progress(total: int) -> Any:
             self, n: int, status: str, stats: dict[str, int] | None, title: str = ""
         ) -> None:
             if status == "queued":
-                # Don't add a sub-task yet — chapter is waiting on the semaphore.
-                p.console.log(f"[dim][ch {n:02d}] queued[/dim]")
-            elif status == "start":
+                # Implicit in TTY mode — running chapters appear as sub-tasks; the
+                # rest are queued by definition. No log line needed.
+                return
+            if status == "start":
                 if n not in sub:
-                    label = f"  [cyan]ch {n:02d}[/cyan] {_truncate(title, 50)}"
+                    label = f"  ch {n:02d}  {_truncate(title, 50)}"
                     sub[n] = p.add_task(label, total=None, start=True)
             elif status in ("done", "skip"):
                 if n in sub:
@@ -105,8 +106,8 @@ def progress(total: int) -> Any:
                 p.advance(overall, 1)
                 tail = ""
                 if stats and stats.get("output_tokens"):
-                    tail = f" [dim]({stats['output_tokens']} tok)[/dim]"
-                p.console.log(f"[green]✓[/green] ch {n:02d} {status}{tail}")
+                    tail = f" ({stats['output_tokens']} tok)"
+                p.console.log(f"✓ ch {n:02d} {status}{tail}")
 
     p.start()
     try:
