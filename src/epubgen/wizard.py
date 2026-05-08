@@ -570,41 +570,67 @@ _STEPS: list[tuple[str, callable]] = [
 ]
 
 
-def _resume_summary(state: State, step_idx: int) -> str:
-    parts: list[str] = []
-    if state.topic:
-        parts.append(f"topic: {state.topic!r}")
-    if state.style:
-        parts.append(f"style: {state.style}")
-    if state.refined:
-        parts.append(f"title: {state.refined.title!r}")
-    body = " · ".join(parts) if parts else "(no choices yet)"
-    next_step = _STEPS[step_idx][0] if step_idx < len(_STEPS) else "complete"
-    return f"{body}\n  next step: {next_step}"
+def _session_label(info) -> str:
+    import time as _t
+
+    age = max(0, int(_t.time() - info.mtime))
+    if age < 60:
+        ago = f"{age}s ago"
+    elif age < 3600:
+        ago = f"{age // 60}m ago"
+    elif age < 86400:
+        ago = f"{age // 3600}h ago"
+    else:
+        ago = f"{age // 86400}d ago"
+    next_step = _STEPS[info.step_index][0] if info.step_index < len(_STEPS) else "complete"
+    title = info.title or info.topic or "(no topic yet)"
+    style = info.style or "?"
+    return f"{title} [dim]· {style} · next: {next_step} · {ago}[/dim]"
 
 
-def _maybe_resume() -> tuple[State, int]:
+def _NEW_SESSION() -> object:
+    return object()
+
+
+_NEW = object()
+
+
+def _maybe_resume() -> tuple[State, int, str | None]:
+    """Return (state, step_index, session_id_or_None_for_new)."""
     from epubgen import wizard_state
 
-    saved = wizard_state.load()
-    if saved is None:
-        return State(), 0
-    state, step_idx = saved
+    sessions = wizard_state.list_sessions()
+    if not sessions:
+        return State(), 0, None
+
+    choices: list[questionary.Choice | questionary.Separator] = []
+    for s in sessions:
+        choices.append(questionary.Choice(title=_session_label(s), value=s.session_id))
+    choices.append(questionary.Separator("─" * 50))
+    choices.append(questionary.Choice(title="✦  Start a new wizard", value=_NEW))
+    choices.append(questionary.Choice(title="🗑  Discard ALL saved sessions", value="__purge__"))
+
     _console.print()
-    _console.print("[bold cyan]Found a previous wizard session:[/bold cyan]")
-    _console.print(f"  {_resume_summary(state, step_idx)}")
-    _console.print()
-    answer = questionary.select(
-        "Resume?",
-        choices=[
-            questionary.Choice(title="✓  Resume from where I left off", value="resume"),
-            questionary.Choice(title="✕  Start fresh (discard previous)", value="fresh"),
-        ],
-    ).ask()
-    if answer == "resume":
-        return state, step_idx
-    wizard_state.clear()
-    return State(), 0
+    _console.print(
+        f"[bold cyan]Found {len(sessions)} saved wizard session(s).[/bold cyan]"
+    )
+    answer = questionary.select("Resume one or start fresh?", choices=choices).ask()
+
+    if answer is None:
+        return State(), 0, None  # treat as new
+    if answer is _NEW:
+        return State(), 0, None
+    if answer == "__purge__":
+        for s in sessions:
+            wizard_state.clear(s.session_id)
+        return State(), 0, None
+
+    loaded = wizard_state.load(answer)
+    if loaded is None:
+        # File vanished between list and load — start new.
+        return State(), 0, None
+    state, idx = loaded
+    return state, idx, answer
 
 
 def run_wizard() -> Options | None:
@@ -612,21 +638,28 @@ def run_wizard() -> Options | None:
 
     if not sys.stdin.isatty():
         return None
-    state, i = _maybe_resume()
+    state, i, session_id = _maybe_resume()
+
     while 0 <= i < len(_STEPS):
         _name, step = _STEPS[i]
         result = step(state, allow_back=(i > 0))
         if result == "next":
             i += 1
-            wizard_state.save(state, i)
+            if session_id is None:
+                session_id = wizard_state.new_session_id(state)
+            wizard_state.save(state, i, session_id)
         elif result == "back":
             _invalidate_after(state, i - 1)
             i = max(0, i - 1)
-            wizard_state.save(state, i)
+            if session_id is not None:
+                wizard_state.save(state, i, session_id)
         elif result == "cancel":
-            wizard_state.clear()
+            if session_id is not None:
+                wizard_state.clear(session_id)
             return None
-    wizard_state.clear()
+
+    if session_id is not None:
+        wizard_state.clear(session_id)
     return state.to_options()
 
 

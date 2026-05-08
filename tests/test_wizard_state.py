@@ -23,13 +23,27 @@ def _outline():
     )
 
 
-def test_state_path_uses_xdg_cache_home(monkeypatch, tmp_path):
+def test_sessions_dir_uses_xdg_cache_home(monkeypatch, tmp_path):
     monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path))
-    p = wizard_state.state_path()
-    assert p == tmp_path / "epubgen" / "wizard.json"
+    assert wizard_state.sessions_dir() == tmp_path / "epubgen" / "sessions"
 
 
-def test_save_then_load_round_trip(monkeypatch, tmp_path):
+def test_new_session_id_includes_topic_slug(tmp_path, monkeypatch):
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path))
+    sid = wizard_state.new_session_id(State(topic="My Cool Topic!"))
+    assert "my-cool-topic" in sid
+
+
+def test_new_session_id_unique_under_collision(tmp_path, monkeypatch):
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path))
+    state = State(topic="x")
+    sid1 = wizard_state.new_session_id(state)
+    wizard_state.save(state, 1, sid1)
+    sid2 = wizard_state.new_session_id(state)
+    assert sid1 != sid2
+
+
+def test_save_load_round_trip(monkeypatch, tmp_path):
     monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path))
     refined = RefinedTopic(
         title="Fast Python",
@@ -47,70 +61,83 @@ def test_save_then_load_round_trip(monkeypatch, tmp_path):
         outline_hint="punchier",
         ereader=False,
     )
-    wizard_state.save(state, step_index=4)
+    sid = wizard_state.new_session_id(state)
+    wizard_state.save(state, step_index=4, session_id=sid)
 
-    loaded = wizard_state.load()
+    loaded = wizard_state.load(sid)
     assert loaded is not None
     s2, idx = loaded
     assert idx == 4
-    assert s2.topic == state.topic
-    assert s2.style == state.style
-    assert s2.refined == state.refined
-    assert s2.description == state.description
-    assert s2.out_path == state.out_path
-    assert s2.workdir == state.workdir
-    assert s2.outline == state.outline
-    assert s2.outline_hint == "punchier"
-    assert s2.ereader is False
+    assert s2 == state
 
 
 def test_load_missing_returns_none(monkeypatch, tmp_path):
     monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path))
-    assert wizard_state.load() is None
+    assert wizard_state.load("nonexistent") is None
 
 
-def test_load_corrupt_returns_none(monkeypatch, tmp_path):
+def test_list_sessions_sorts_recent_first(monkeypatch, tmp_path):
     monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path))
-    p = wizard_state.state_path()
-    p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text("{not json")
-    assert wizard_state.load() is None
+    sid1 = wizard_state.new_session_id(State(topic="alpha"))
+    wizard_state.save(State(topic="alpha"), 1, sid1)
+    import time as _t
+    _t.sleep(0.01)
+    sid2 = wizard_state.new_session_id(State(topic="beta"))
+    wizard_state.save(State(topic="beta"), 2, sid2)
+
+    listed = wizard_state.list_sessions()
+    assert [s.session_id for s in listed] == [sid2, sid1]
+    assert listed[0].topic == "beta"
 
 
-def test_load_wrong_version_returns_none(monkeypatch, tmp_path):
-    import json
+def test_list_sessions_skips_corrupt(monkeypatch, tmp_path):
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path))
+    d = wizard_state.sessions_dir()
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "corrupt.json").write_text("{not json")
+    assert wizard_state.list_sessions() == []
+
+
+def test_list_sessions_skips_wrong_version(monkeypatch, tmp_path):
+    import json as _json
 
     monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path))
-    p = wizard_state.state_path()
-    p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps({"version": 999, "topic": "x"}))
-    assert wizard_state.load() is None
+    d = wizard_state.sessions_dir()
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "old.json").write_text(_json.dumps({"version": 999, "topic": "x"}))
+    assert wizard_state.list_sessions() == []
 
 
-def test_clear_removes_file(monkeypatch, tmp_path):
+def test_clear_removes_only_specified_session(monkeypatch, tmp_path):
     monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path))
-    state = State(topic="x", style="oreilly")
-    wizard_state.save(state, step_index=1)
-    assert wizard_state.state_path().exists()
-    wizard_state.clear()
-    assert not wizard_state.state_path().exists()
+    sid1 = wizard_state.new_session_id(State(topic="alpha"))
+    wizard_state.save(State(topic="alpha"), 1, sid1)
+    sid2 = wizard_state.new_session_id(State(topic="beta"))
+    wizard_state.save(State(topic="beta"), 1, sid2)
+
+    wizard_state.clear(sid1)
+    assert not wizard_state.session_path(sid1).exists()
+    assert wizard_state.session_path(sid2).exists()
 
 
-def test_clear_is_idempotent(monkeypatch, tmp_path):
+def test_clear_idempotent(monkeypatch, tmp_path):
     monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path))
-    wizard_state.clear()  # nothing there — must not raise
-    wizard_state.clear()
+    wizard_state.clear("nonexistent")
+    wizard_state.clear("nonexistent")  # second call must not raise
 
 
-def test_save_partial_state_is_loadable(monkeypatch, tmp_path):
-    """A crash mid-step 1 means only topic is set; load must still succeed."""
+def test_two_sessions_dont_clobber(monkeypatch, tmp_path):
+    """Two parallel wizards must each persist their own state."""
     monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path))
-    wizard_state.save(State(topic="a topic"), step_index=1)
-    loaded = wizard_state.load()
-    assert loaded is not None
-    s, idx = loaded
-    assert s.topic == "a topic"
-    assert s.style is None
-    assert s.refined is None
-    assert s.outline is None
-    assert idx == 1
+    sa = State(topic="alpha")
+    sb = State(topic="beta")
+    sid_a = wizard_state.new_session_id(sa)
+    sid_b = wizard_state.new_session_id(sb)
+    assert sid_a != sid_b
+    wizard_state.save(sa, 2, sid_a)
+    wizard_state.save(sb, 5, sid_b)
+    la = wizard_state.load(sid_a)
+    lb = wizard_state.load(sid_b)
+    assert la is not None and lb is not None
+    assert la[0].topic == "alpha" and la[1] == 2
+    assert lb[0].topic == "beta" and lb[1] == 5
