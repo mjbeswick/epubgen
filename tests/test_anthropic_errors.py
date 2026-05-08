@@ -41,3 +41,16 @@ def test_unknown_error_returns_no_hint():
     msg, hint = _classify_anthropic_error(e)
     assert hint is None
     assert "anthropic" in msg.lower()
+
+
+def test_usage_limit_classified():
+    e = Exception(
+        "Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', "
+        "'message': 'You have reached your specified API usage limits. You will regain "
+        "access on 2026-06-01 at 00:00 UTC.'}}"
+    )
+    msg, hint = _classify_anthropic_error(e)
+    assert "usage limit" in msg.lower()
+    assert "2026-06-01" in msg
+    assert hint is not None
+    assert "resume" in hint.lower()

@@ -56,6 +56,12 @@ def freeze_options(workdir: Path, frozen: dict[str, Any], *, force: bool) -> Non
     path = workdir / "options.json"
     if path.exists():
         existing = json.loads(path.read_text())
+        # Backfill keys added in later schema versions whose new default is "empty"
+        # (None / [] / {}). Older workdirs predate these keys and would otherwise
+        # always mismatch.
+        for k, v in frozen.items():
+            if k not in existing and v in (None, [], {}):
+                existing[k] = v
         if existing != frozen and not force:
             diffs = [k for k in set(existing) | set(frozen) if existing.get(k) != frozen.get(k)]
             raise FsError(

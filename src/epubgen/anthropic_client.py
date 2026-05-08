@@ -45,6 +45,17 @@ def _classify_anthropic_error(e: Exception) -> tuple[str, str | None]:
             "Anthropic credit balance too low",
             "Top up at https://console.anthropic.com/settings/billing",
         )
+    if "specified api usage limits" in lower or "usage limits" in lower:
+        # User-set spend cap was hit (org or workspace limit). Distinct from rate limits.
+        import re
+        m = re.search(r"regain access on ([0-9T:\- ]+(?:UTC)?)", msg)
+        when = f" (resets {m.group(1).strip()})" if m else ""
+        return (
+            f"Anthropic API usage limit reached{when}",
+            "Raise the cap at https://console.anthropic.com/settings/limits, "
+            "or wait for the reset. Already-generated chapters are saved — "
+            "rerun `epubgen resume` after the reset to continue.",
+        )
     if "authentication_error" in lower or "invalid x-api-key" in lower:
         return (
             "ANTHROPIC_API_KEY rejected",
