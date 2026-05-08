@@ -62,6 +62,8 @@ class Options(BaseModel):
     preferred_subtitle: str | None = None
     description: str | None = None
     metadata: dict[str, str] = Field(default_factory=dict)
+    sources: list[Path] = Field(default_factory=list)
+    source_digest: list[dict[str, str]] = Field(default_factory=list)
     force: bool = False
     dry_run: bool = False
     verbose: bool = False
@@ -79,4 +81,5 @@ class Options(BaseModel):
             "preferred_title": self.preferred_title,
             "preferred_subtitle": self.preferred_subtitle,
             "description": self.description,
+            "source_digest": self.source_digest,
         }

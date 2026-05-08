@@ -29,6 +29,8 @@ app = typer.Typer(
 )
 styles_app = typer.Typer(help="Inspect available style presets.")
 app.add_typer(styles_app, name="styles")
+amend_app = typer.Typer(help="Modify an existing book's workdir in place.", no_args_is_help=True)
+app.add_typer(amend_app, name="amend")
 
 EXIT_USER = 1
 EXIT_API = 2
@@ -37,7 +39,7 @@ EXIT_FS = 4
 EXIT_OUTLINE = 5
 
 
-_PREFLIGHT_SKIP = {"doctor", "styles"}
+_PREFLIGHT_SKIP = {"doctor", "styles", "amend"}
 
 
 def _preflight() -> None:
@@ -132,6 +134,15 @@ def generate(
     no_images: Annotated[
         bool, typer.Option("--no-images", help="Skip generated images only (keep mermaid/charts)")
     ] = False,
+    sources: Annotated[
+        list[Path] | None,
+        typer.Option(
+            "--source",
+            help="Reference source (file, dir, or glob). Repeatable. "
+            "Supports .md/.txt/.html/.docx/.epub/.pdf and other text formats. "
+            "Sources ground the outline + every chapter via prompt caching.",
+        ),
+    ] = None,
     cover_prompt: Annotated[str | None, typer.Option("--cover-prompt")] = None,
     author: Annotated[str, typer.Option("--author")] = "epubgen",
     force: Annotated[bool, typer.Option("--force", help="Override options.json mismatch")] = False,
@@ -186,6 +197,7 @@ def generate(
         no_diagrams=no_diagrams,
         no_images=no_images,
         cover_prompt=cover_prompt,
+        sources=sources or [],
         author=author,
         preferred_title=preferred_title,
         preferred_subtitle=preferred_subtitle,
@@ -285,6 +297,14 @@ def resume(
         ),
     ] = None,
     out: Annotated[Path | None, typer.Option("--out", "-o")] = None,
+    sources: Annotated[
+        list[Path] | None,
+        typer.Option(
+            "--source",
+            help="Re-pass source paths used in the original run. "
+            "Digests are verified against the frozen options.json.",
+        ),
+    ] = None,
     verbose: Annotated[bool, typer.Option("--verbose", "-v")] = False,
     log: Annotated[bool, typer.Option("--log")] = False,
     log_file: Annotated[Path | None, typer.Option("--log-file")] = None,
@@ -303,7 +323,7 @@ def resume(
 
     frozen = json.loads((resolved / "options.json").read_text())
     out_path = out or Path(f"./{slugify(frozen['topic'])}.epub")
-    opts = Options(out=out_path, workdir=resolved, **frozen)
+    opts = Options(out=out_path, workdir=resolved, sources=sources or [], **frozen)
     _run(opts)
 
 
@@ -314,6 +334,220 @@ def doctor() -> None:
     typer.echo(format_checks(checks))
     if fatal_checks(checks):
         raise typer.Exit(EXIT_USER)
+
+
+def _amend_run(fn, /, *args, **kwargs) -> None:
+    """Wrap an amend operation with the standard error mapping."""
+    log = get_logger("cli.amend")
+    try:
+        result = fn(*args, **kwargs)
+    except ConfigError as e:
+        log.error("config error: %s", e)
+        typer.secho(f"config: {e}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(EXIT_USER) from e
+    except PandocError as e:
+        log.error("pandoc error: %s", e)
+        typer.secho(f"pandoc: {e}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(EXIT_PANDOC) from e
+    except FsError as e:
+        log.error("fs error: %s", e)
+        typer.secho(f"fs: {e}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(EXIT_FS) from e
+    except EpubgenError as e:
+        log.error("error: %s", e)
+        typer.secho(f"error: {e}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(EXIT_USER) from e
+    if isinstance(result, Path):
+        typer.secho(f"✓ wrote {result}", fg=typer.colors.GREEN, err=True)
+
+
+@amend_app.command("rebuild")
+def amend_rebuild(
+    workdir: Annotated[
+        Path | None,
+        typer.Argument(help="Work dir, .epub path, or a directory to search"),
+    ] = None,
+    out: Annotated[Path | None, typer.Option("--out", "-o")] = None,
+    regen_cover: Annotated[
+        bool,
+        typer.Option("--regen-cover", help="Re-generate the cover (otherwise reuse existing)"),
+    ] = False,
+    verbose: Annotated[bool, typer.Option("--verbose", "-v")] = False,
+) -> None:
+    """Re-render figures and reassemble the EPUB from current workdir state."""
+    configure_logging(verbose=verbose, log_file=None)
+    resolved = _resolve_resume_workdir(workdir)
+    if resolved is None:
+        typer.secho("cancelled", fg=typer.colors.YELLOW, err=True)
+        raise typer.Exit(EXIT_USER)
+    from epubgen.amend_pipeline import rebuild
+
+    _amend_run(rebuild, resolved, out=out, regen_cover=regen_cover)
+
+
+@amend_app.command("retitle")
+def amend_retitle(
+    workdir: Annotated[Path | None, typer.Argument()] = None,
+    title: Annotated[str | None, typer.Option("--title")] = None,
+    subtitle: Annotated[str | None, typer.Option("--subtitle")] = None,
+    clear_subtitle: Annotated[bool, typer.Option("--clear-subtitle")] = False,
+    rebuild: Annotated[bool, typer.Option("--rebuild/--no-rebuild")] = True,
+    out: Annotated[Path | None, typer.Option("--out", "-o")] = None,
+) -> None:
+    """Change book title and/or subtitle. No model calls."""
+    if title is None and subtitle is None and not clear_subtitle:
+        typer.secho("nothing to change (pass --title / --subtitle / --clear-subtitle)",
+                    fg=typer.colors.YELLOW, err=True)
+        raise typer.Exit(EXIT_USER)
+    resolved = _resolve_resume_workdir(workdir)
+    if resolved is None:
+        raise typer.Exit(EXIT_USER)
+    from epubgen import amend as amend_mod
+
+    def _do() -> Path | None:
+        outline, frozen = amend_mod.load_workdir(resolved)
+        if clear_subtitle:
+            sub_arg: object = None
+        elif subtitle is not None:
+            sub_arg = subtitle
+        else:
+            sub_arg = ...
+        new_outline = amend_mod.retitle(outline, title=title, subtitle=sub_arg)  # type: ignore[arg-type]
+        amend_mod.save(resolved, new_outline)
+        typer.secho(f"✓ retitled → {new_outline.title!r}", fg=typer.colors.GREEN, err=True)
+        if rebuild:
+            from epubgen.amend_pipeline import rebuild as rebuild_fn
+            return rebuild_fn(resolved, out=out)
+        return None
+
+    _amend_run(_do)
+
+
+@amend_app.command("remove")
+def amend_remove(
+    workdir: Annotated[Path | None, typer.Argument()] = None,
+    n: Annotated[int, typer.Argument(help="Chapter number to remove")] = 0,
+    rebuild: Annotated[bool, typer.Option("--rebuild/--no-rebuild")] = True,
+    out: Annotated[Path | None, typer.Option("--out", "-o")] = None,
+) -> None:
+    """Remove a chapter and renumber the rest."""
+    if n <= 0:
+        typer.secho("chapter number required (e.g. `epubgen amend remove . 5`)",
+                    fg=typer.colors.RED, err=True)
+        raise typer.Exit(EXIT_USER)
+    resolved = _resolve_resume_workdir(workdir)
+    if resolved is None:
+        raise typer.Exit(EXIT_USER)
+    from epubgen import amend as amend_mod
+
+    def _do() -> Path | None:
+        outline, _ = amend_mod.load_workdir(resolved)
+        new_outline = amend_mod.remove_chapter(resolved, outline, n)
+        amend_mod.save(resolved, new_outline)
+        typer.secho(
+            f"✓ removed chapter {n}; {len(new_outline.chapters)} chapters remain",
+            fg=typer.colors.GREEN, err=True,
+        )
+        if rebuild:
+            from epubgen.amend_pipeline import rebuild as rebuild_fn
+            return rebuild_fn(resolved, out=out)
+        return None
+
+    _amend_run(_do)
+
+
+@amend_app.command("reorder")
+def amend_reorder(
+    workdir: Annotated[Path | None, typer.Argument()] = None,
+    frm: Annotated[int, typer.Argument(metavar="FROM", help="Current chapter number")] = 0,
+    to: Annotated[int, typer.Argument(help="Target position")] = 0,
+    rebuild: Annotated[bool, typer.Option("--rebuild/--no-rebuild")] = True,
+    out: Annotated[Path | None, typer.Option("--out", "-o")] = None,
+) -> None:
+    """Move a chapter to a new position."""
+    if frm <= 0 or to <= 0:
+        typer.secho("FROM and TO required (e.g. `epubgen amend reorder . 5 2`)",
+                    fg=typer.colors.RED, err=True)
+        raise typer.Exit(EXIT_USER)
+    resolved = _resolve_resume_workdir(workdir)
+    if resolved is None:
+        raise typer.Exit(EXIT_USER)
+    from epubgen import amend as amend_mod
+
+    def _do() -> Path | None:
+        outline, _ = amend_mod.load_workdir(resolved)
+        new_outline = amend_mod.reorder_chapter(resolved, outline, frm, to)
+        amend_mod.save(resolved, new_outline)
+        typer.secho(f"✓ moved chapter {frm} → position {to}",
+                    fg=typer.colors.GREEN, err=True)
+        if rebuild:
+            from epubgen.amend_pipeline import rebuild as rebuild_fn
+            return rebuild_fn(resolved, out=out)
+        return None
+
+    _amend_run(_do)
+
+
+@amend_app.command("edit")
+def amend_edit(
+    workdir: Annotated[Path | None, typer.Argument()] = None,
+    n: Annotated[int, typer.Argument(help="Chapter number to edit")] = 0,
+    rebuild: Annotated[bool, typer.Option("--rebuild/--no-rebuild")] = True,
+    out: Annotated[Path | None, typer.Option("--out", "-o")] = None,
+) -> None:
+    """Open a chapter in $EDITOR. After save, optionally reassemble."""
+    if n <= 0:
+        typer.secho("chapter number required", fg=typer.colors.RED, err=True)
+        raise typer.Exit(EXIT_USER)
+    resolved = _resolve_resume_workdir(workdir)
+    if resolved is None:
+        raise typer.Exit(EXIT_USER)
+    import os
+    import subprocess
+
+    from epubgen.workdir import chapter_path as ch_path
+
+    path = ch_path(resolved, n)
+    if not path.exists():
+        typer.secho(f"chapter file not found: {path}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(EXIT_USER)
+    editor = os.environ.get("VISUAL") or os.environ.get("EDITOR") or "vi"
+    rc = subprocess.run([editor, str(path)]).returncode
+    if rc != 0:
+        typer.secho(f"editor exited {rc}", fg=typer.colors.YELLOW, err=True)
+        raise typer.Exit(EXIT_USER)
+
+    def _do() -> Path | None:
+        if rebuild:
+            from epubgen.amend_pipeline import rebuild as rebuild_fn
+            return rebuild_fn(resolved, out=out)
+        return None
+
+    _amend_run(_do)
+
+
+@amend_app.command("recover")
+def amend_recover(
+    workdir: Annotated[Path | None, typer.Argument()] = None,
+    cover_prompt: Annotated[str | None, typer.Option("--cover-prompt")] = None,
+    out: Annotated[Path | None, typer.Option("--out", "-o")] = None,
+) -> None:
+    """Regenerate the cover and reassemble."""
+    _preflight()  # uses OPENAI_API_KEY; rebuild may regen
+    resolved = _resolve_resume_workdir(workdir)
+    if resolved is None:
+        raise typer.Exit(EXIT_USER)
+    from epubgen.amend_pipeline import rebuild
+
+    if cover_prompt:
+        # Persist as the cover_prompt for this rebuild via a side-channel:
+        # update frozen options so future rebuilds use it too.
+        from epubgen import amend as amend_mod
+
+        outline, frozen = amend_mod.load_workdir(resolved)
+        frozen["cover_prompt"] = cover_prompt
+        amend_mod.save(resolved, outline, frozen=frozen)
+    _amend_run(rebuild, resolved, out=out, regen_cover=True)
 
 
 @styles_app.command("list")

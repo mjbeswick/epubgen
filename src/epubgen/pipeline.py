@@ -15,6 +15,7 @@ from epubgen.outline import get_or_generate_outline
 from epubgen.progress import figure_progress, phase, progress
 from epubgen.prompts.cover import build_cover_image_prompt
 from epubgen.schema import Options
+from epubgen.sources import build_bundle, freeze_digest, load_sources
 from epubgen.styles import load_style
 from epubgen.workdir import chapter_path, ensure_workdir, freeze_options
 
@@ -28,21 +29,30 @@ async def run_async(opts: Options) -> Path:
     workdir = ensure_workdir(opts.workdir)
     log.info("workdir: %s", workdir)
 
+    sources_text = ""
+    if opts.sources:
+        loaded = load_sources(opts.sources)
+        sources_text = build_bundle(loaded)
+        opts.source_digest = freeze_digest(loaded)
+        log.info("loaded %d source file(s); bundle %d chars", len(loaded), len(sources_text))
+
     with lock_workdir(workdir):
         freeze_options(workdir, opts.freeze_dict(), force=opts.force)
 
         outline_path = workdir / "outline.json"
         if outline_path.exists():
-            outline = await get_or_generate_outline(style, opts, workdir)
+            outline = await get_or_generate_outline(style, opts, workdir, sources_text=sources_text)
             log.info("outline (cached): %d chapters — %r", len(outline.chapters), outline.title)
         else:
             with phase("Generating outline"):
-                outline = await get_or_generate_outline(style, opts, workdir)
+                outline = await get_or_generate_outline(style, opts, workdir, sources_text=sources_text)
             log.info("outline: %d chapters — %r", len(outline.chapters), outline.title)
 
         log.info("generating chapters (concurrency=%d)", opts.concurrency)
         with progress(total=len(outline.chapters)) as p:
-            await generate_all(style, outline, opts, workdir, progress=p.update)
+            await generate_all(
+                style, outline, opts, workdir, progress=p.update, sources_text=sources_text
+            )
 
         if not opts.no_diagrams:
             chapter_files = [chapter_path(workdir, ch.number) for ch in outline.chapters]

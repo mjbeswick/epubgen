@@ -33,9 +33,9 @@ def _extract_text(response: Any) -> str:
 
 
 async def generate_chapter(
-    style: Style, outline: Outline, chapter: Chapter, opts: Options
+    style: Style, outline: Outline, chapter: Chapter, opts: Options, sources_text: str = ""
 ) -> tuple[str, dict[str, int]]:
-    payload = build_chapter_messages(style, outline, chapter, opts)
+    payload = build_chapter_messages(style, outline, chapter, opts, sources_text=sources_text)
     resp = await create_message(model=opts.model, max_tokens=_CHAPTER_MAX_TOKENS, **payload)
     text = _extract_text(resp)
     usage = getattr(resp, "usage", None)
@@ -57,6 +57,7 @@ async def generate_all(
     opts: Options,
     workdir: Path,
     progress: ProgressFn | None = None,
+    sources_text: str = "",
 ) -> None:
     sem = asyncio.Semaphore(opts.concurrency)
 
@@ -74,7 +75,7 @@ async def generate_all(
             if progress:
                 progress(ch.number, "start", None, ch.title)
             t0 = time.monotonic()
-            text, stats = await generate_chapter(style, outline, ch, opts)
+            text, stats = await generate_chapter(style, outline, ch, opts, sources_text=sources_text)
             elapsed = time.monotonic() - t0
             atomic_write_text(path, text)
             log.info(

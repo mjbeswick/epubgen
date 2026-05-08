@@ -61,10 +61,10 @@ async def _call_outline(model: str, payload: dict[str, Any]) -> dict[str, Any]:
 
 
 async def generate_outline(
-    style: Style, opts: Options, *, hint: str | None = None
+    style: Style, opts: Options, *, hint: str | None = None, sources_text: str = ""
 ) -> Outline:
     log.info("requesting outline from model (hint=%r)", hint)
-    payload = build_outline_messages(style, opts, hint=hint)
+    payload = build_outline_messages(style, opts, hint=hint, sources_text=sources_text)
     raw = await _call_outline(opts.model, payload)
     raw["topic"] = opts.topic
     raw["style"] = style.name
@@ -75,7 +75,8 @@ async def generate_outline(
     except ValidationError as first_err:
         log.warning("outline failed validation, requesting repair: %s", first_err)
         repair_payload = build_repair_messages(
-            style, opts, json.dumps(raw, indent=2), str(first_err), hint=hint
+            style, opts, json.dumps(raw, indent=2), str(first_err),
+            hint=hint, sources_text=sources_text,
         )
         retry_raw = await _call_outline(opts.model, repair_payload)
         retry_raw["topic"] = opts.topic
@@ -97,13 +98,13 @@ def save_outline(path: Path, outline: Outline) -> None:
 
 
 async def get_or_generate_outline(
-    style: Style, opts: Options, workdir: Path
+    style: Style, opts: Options, workdir: Path, sources_text: str = ""
 ) -> Outline:
     path = workdir / "outline.json"
     if path.exists():
         return load_outline(path)
     try:
-        outline = await generate_outline(style, opts)
+        outline = await generate_outline(style, opts, sources_text=sources_text)
     except ApiError:
         raise
     save_outline(path, outline)

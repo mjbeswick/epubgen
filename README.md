@@ -13,7 +13,8 @@ epubgen wizard
 - **Interactive wizard** — `questionary` flow that picks a style, brainstorms three title framings (with hint-driven regeneration), drafts a back-cover description, and threads everything into the outline.
 - **Rich content** — code (highlighted), tables, math (`$...$` / `$$...$$` → MathML), Mermaid diagrams, Vega-Lite charts, and AI-generated images, all from fenced blocks the model emits.
 - **E-reader mode** — `--ereader` (default **on**) tunes for ~6" reflowable screens (Kindle/Kobo/KOReader/Pocketbook): code lines ≤60 chars, monochrome syntax theme, AZW3 output if `kindlepreviewer` is present. Pass `--no-ereader` for tablet/desktop output. The Kindle-specific PNG figure conversion is gone — SVG works on every modern reader.
-- **Prompt caching** — style guide and outline cached at two `cache_control` breakpoints; per-chapter calls reuse the prefix at ~10% token cost.
+- **Prompt caching** — style guide, optional source bundle, and outline cached at three `cache_control` breakpoints; per-chapter calls reuse the prefix at ~10% token cost.
+- **Source grounding** — pass `--source PATH` (repeatable, accepts files/dirs/globs) to inject reference material into every prompt. Outline scope and chapter facts are tied to your sources instead of model priors. PDFs/.docx/.epub/.html convert via pandoc; plain `.md`/`.txt` read directly.
 - **Resumable** — chapters written atomically to `<out>.work/ch-NN.md`; re-running picks up where it left off. `options.json` is frozen on first run; mismatches refuse to resume unless `--force`.
 - **Concurrent** — async chapter generation with a small pool (default 3).
 - **Cover** — SVG fallback (always works) or OpenAI gpt-image-1 if `OPENAI_API_KEY` is set.
@@ -63,6 +64,7 @@ epubgen generate <topic>     Non-interactive generation
 epubgen wizard               Interactive prompt-driven flow
 epubgen styles list|show     Inspect style presets
 epubgen resume <workdir>     Resume an interrupted run
+epubgen amend <op> <wd>      Edit an existing book (see Amending)
 epubgen doctor               Preflight dependency check
 ```
 
@@ -81,6 +83,9 @@ epubgen doctor               Preflight dependency check
     --no-diagrams          Skip all figure rendering (mermaid+chart+image)
     --no-images            Skip generated images only (keep mermaid/charts)
     --cover-prompt TEXT    Override cover image prompt
+    --source PATH          Reference source (file/dir/glob). Repeatable.
+                           Grounds outline + chapters via the prompt cache.
+                           Reads .md/.txt/.html/.docx/.epub/.pdf and friends.
     --author TEXT          Author metadata (default: epubgen)
     --refine               Interactively refine title/subtitle (TTY required)
     --force                Override options.json mismatch on resume
@@ -154,6 +159,23 @@ If a run dies mid-way (interrupted, transient API error, etc.), just rerun with 
 ```
 epubgen resume <out>.work/      # picks up where it left off
 ```
+
+If the API errors out mid-run (rate limit, usage cap, credit balance), epubgen prints a one-line cause + hint instead of a traceback. Already-generated chapters are saved; rerun `epubgen resume` once the underlying issue is cleared.
+
+## Amending
+
+Once a book exists you can edit its workdir in place. Operations that don't call the model (everything except `rewrite` / `insert`) are essentially free.
+
+```
+epubgen amend rebuild  <wd>                 # re-render figures + reassemble
+epubgen amend retitle  <wd> --title "..." [--subtitle "..." | --clear-subtitle]
+epubgen amend remove   <wd> N               # drop chapter N, renumber
+epubgen amend reorder  <wd> FROM TO         # move chapter to new position
+epubgen amend edit     <wd> N               # open ch-NN.md in $EDITOR
+epubgen amend recover  <wd> [--cover-prompt "..."]   # regen cover
+```
+
+`<wd>` accepts the same flexible argument as `resume` — a workdir path, an `.epub` path (workdir derived as `<epub>.work`), or a directory to search interactively. Mutating commands take `--no-rebuild` to skip reassembly when chaining edits, and `--out PATH` to override the output epub. Destructive ops back up the prior file to `<wd>/.archive/`.
 
 ## Debugging
 

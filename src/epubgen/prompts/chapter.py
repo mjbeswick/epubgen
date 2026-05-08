@@ -14,7 +14,7 @@ def canonical_outline_text(outline: Outline) -> str:
 
 
 def build_chapter_messages(
-    style: Style, outline: Outline, chapter: Chapter, opts: Options
+    style: Style, outline: Outline, chapter: Chapter, opts: Options, sources_text: str = ""
 ) -> dict[str, Any]:
     beats = "\n".join(f"- {b.summary}" for b in chapter.beats)
     code = "\n".join(f"- {c}" for c in chapter.code_examples) or "(none)"
@@ -50,30 +50,44 @@ def build_chapter_messages(
         "Do not include front-matter, commentary, or surrounding prose."
         f"{ereader_clause}"
     )
+    system: list[dict[str, Any]] = [
+        {
+            "type": "text",
+            "text": style.guide,
+            "cache_control": {"type": "ephemeral"},
+        },
+    ]
+    if sources_text:
+        system.append({
+            "type": "text",
+            "text": sources_text,
+            "cache_control": {"type": "ephemeral"},
+        })
+    system.append({
+        "type": "text",
+        "text": (
+            "Full book outline (for cross-chapter context):\n\n"
+            + canonical_outline_text(outline)
+        ),
+        "cache_control": {"type": "ephemeral"},
+    })
+    sources_clause = (
+        " Ground every factual claim in the reference sources above; if a claim "
+        "isn't supported there, omit it. The style guide governs voice and "
+        "structure only — never let it override what the sources say."
+        if sources_text else ""
+    )
+    system.append({
+        "type": "text",
+        "text": (
+            "You write one chapter at a time. Match the style guide exactly. "
+            "Don't repeat material from other chapters; "
+            "reference them by title when useful."
+            f"{sources_clause}\n\n"
+            + ANTI_ATTRIBUTION
+        ),
+    })
     return {
-        "system": [
-            {
-                "type": "text",
-                "text": style.guide,
-                "cache_control": {"type": "ephemeral"},
-            },
-            {
-                "type": "text",
-                "text": (
-                    "Full book outline (for cross-chapter context):\n\n"
-                    + canonical_outline_text(outline)
-                ),
-                "cache_control": {"type": "ephemeral"},
-            },
-            {
-                "type": "text",
-                "text": (
-                    "You write one chapter at a time. Match the style guide exactly. "
-                    "Don't repeat material from other chapters; "
-                    "reference them by title when useful.\n\n"
-                    + ANTI_ATTRIBUTION
-                ),
-            },
-        ],
+        "system": system,
         "messages": [{"role": "user", "content": user}],
     }

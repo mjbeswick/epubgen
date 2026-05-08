@@ -77,7 +77,7 @@ OUTLINE_TOOL = {
 
 
 def build_outline_messages(
-    style: Style, opts: Options, hint: str | None = None
+    style: Style, opts: Options, hint: str | None = None, sources_text: str = ""
 ) -> dict[str, Any]:
     chapters_clause = (
         f"Aim for exactly {opts.chapters} chapters."
@@ -134,23 +134,36 @@ def build_outline_messages(
         f"{hint_clause}\n"
         "Use the emit_outline tool to return the outline."
     )
+    system: list[dict[str, Any]] = [
+        {
+            "type": "text",
+            "text": style.guide,
+            "cache_control": {"type": "ephemeral"},
+        },
+    ]
+    if sources_text:
+        system.append({
+            "type": "text",
+            "text": sources_text,
+            "cache_control": {"type": "ephemeral"},
+        })
+    sources_clause = (
+        " The reference sources above are authoritative; the outline must "
+        "reflect their content and scope, not generic priors about the topic."
+        if sources_text else ""
+    )
+    system.append({
+        "type": "text",
+        "text": (
+            "You design book outlines. "
+            "Match the voice and structure of the style guide above."
+            f"{sources_clause} "
+            "Return your answer by calling the emit_outline tool — never plain text.\n\n"
+            + ANTI_ATTRIBUTION
+        ),
+    })
     return {
-        "system": [
-            {
-                "type": "text",
-                "text": style.guide,
-                "cache_control": {"type": "ephemeral"},
-            },
-            {
-                "type": "text",
-                "text": (
-                    "You design book outlines. "
-                    "Match the voice and structure of the style guide above. "
-                    "Return your answer by calling the emit_outline tool — never plain text.\n\n"
-                    + ANTI_ATTRIBUTION
-                ),
-            },
-        ],
+        "system": system,
         "messages": [{"role": "user", "content": user}],
         "tools": [OUTLINE_TOOL],
         "tool_choice": {"type": "tool", "name": "emit_outline"},
@@ -158,9 +171,14 @@ def build_outline_messages(
 
 
 def build_repair_messages(
-    style: Style, opts: Options, prior_json: str, error: str, hint: str | None = None
+    style: Style,
+    opts: Options,
+    prior_json: str,
+    error: str,
+    hint: str | None = None,
+    sources_text: str = "",
 ) -> dict[str, Any]:
-    base = build_outline_messages(style, opts, hint=hint)
+    base = build_outline_messages(style, opts, hint=hint, sources_text=sources_text)
     base["messages"] = [
         {"role": "user", "content": base["messages"][0]["content"]},
         {"role": "assistant", "content": [{"type": "text", "text": prior_json}]},
