@@ -4,34 +4,66 @@ from dataclasses import dataclass, field
 from threading import Lock
 from typing import Any
 
-# USD per million tokens. Calibrated against real billing data 2026-05;
-# verify at https://console.anthropic.com/pricing if estimates drift.
-ANTHROPIC_RATES = {
-    "claude-opus-4-7":   {"in": 5.00, "out": 25.00, "cache_w":  6.25, "cache_r": 0.50},
-    "claude-opus-4-6":   {"in": 5.00, "out": 25.00, "cache_w":  6.25, "cache_r": 0.50},
-    "claude-sonnet-4-6": {"in": 3.00, "out": 15.00, "cache_w":  3.75, "cache_r": 0.30},
-    "claude-haiku-4-5":  {"in": 0.80, "out":  4.00, "cache_w":  1.00, "cache_r": 0.08},
+# USD per million tokens. Verified against published pricing 2026-05; see provider
+# pricing pages for the source of truth.
+# Anthropic: https://docs.anthropic.com/en/docs/about-claude/pricing
+# OpenAI:    https://openai.com/api/pricing/
+# Google:    https://ai.google.dev/gemini-api/docs/pricing
+# DeepSeek:  https://api-docs.deepseek.com/quick_start/pricing
+# OpenRouter pass-through pricing varies — we use indicative numbers.
+RATES: dict[str, dict[str, float]] = {
+    # Anthropic — explicit cache_control breakpoints; cache_w/cache_r match Anthropic semantics.
+    "anthropic/claude-opus-4-7":   {"in": 5.00, "out": 25.00, "cache_w":  6.25, "cache_r": 0.50},
+    "anthropic/claude-opus-4-6":   {"in": 5.00, "out": 25.00, "cache_w":  6.25, "cache_r": 0.50},
+    "anthropic/claude-sonnet-4-6": {"in": 3.00, "out": 15.00, "cache_w":  3.75, "cache_r": 0.30},
+    "anthropic/claude-haiku-4-5":  {"in": 0.80, "out":  4.00, "cache_w":  1.00, "cache_r": 0.08},
+    # OpenAI — auto prefix caching; cache_w == in (no separate write fee), cache_r ~= 50% of in.
+    "openai/gpt-5":      {"in": 1.25, "out": 10.00, "cache_w": 1.25, "cache_r": 0.125},
+    "openai/gpt-5-mini": {"in": 0.25, "out":  2.00, "cache_w": 0.25, "cache_r": 0.025},
+    "openai/gpt-5-nano": {"in": 0.05, "out":  0.40, "cache_w": 0.05, "cache_r": 0.005},
+    # Google Gemini — explicit caches.create; cache_w stored on a per-token-hour basis but we
+    # roll the create cost into cache_w as a one-shot approximation.
+    "google/gemini-2.5-pro":   {"in": 1.25, "out": 10.00, "cache_w": 1.25, "cache_r": 0.31},
+    "google/gemini-2.5-flash": {"in": 0.30, "out":  2.50, "cache_w": 0.30, "cache_r": 0.075},
+    # DeepSeek — auto prefix caching; cache_r ~= 10% of input rate.
+    "deepseek/deepseek-chat":     {"in": 0.27, "out": 1.10, "cache_w": 0.27, "cache_r": 0.07},
+    "deepseek/deepseek-reasoner": {"in": 0.55, "out": 2.19, "cache_w": 0.55, "cache_r": 0.14},
+    # OpenRouter — billed pass-through; figures here are indicative for the seeded models only.
+    "openrouter/anthropic/claude-sonnet-4.5": {"in": 3.00, "out": 15.00, "cache_w": 3.75, "cache_r": 0.30},  # noqa: E501
+    "openrouter/openai/gpt-5": {"in": 1.25, "out": 10.00, "cache_w": 1.25, "cache_r": 0.125},
+    "openrouter/google/gemini-2.5-flash": {"in": 0.30, "out": 2.50, "cache_w": 0.30, "cache_r": 0.075},  # noqa: E501
+    "openrouter/deepseek/deepseek-chat": {"in": 0.27, "out": 1.10, "cache_w": 0.27, "cache_r": 0.07},  # noqa: E501
+    "openrouter/meta-llama/llama-3.3-70b-instruct": {"in": 0.13, "out": 0.40, "cache_w": 0.13, "cache_r": 0.13},  # noqa: E501
 }
-_FALLBACK_RATES = ANTHROPIC_RATES["claude-sonnet-4-6"]
+
+_FALLBACK_RATES = RATES["anthropic/claude-sonnet-4-6"]
+
+# Back-compat alias used by older tests.
+ANTHROPIC_RATES = {
+    k.removeprefix("anthropic/"): v
+    for k, v in RATES.items()
+    if k.startswith("anthropic/")
+}
 
 # OpenAI gpt-image-1 standard quality, ~1024 px.
 OPENAI_IMAGE_USD = 0.04
 
 
+def _normalize(model: str) -> str:
+    if "/" in model:
+        return model
+    # Bare legacy id → assume Anthropic.
+    return f"anthropic/{model}"
+
+
 def rates_for(model: str) -> dict[str, float]:
-    return ANTHROPIC_RATES.get(model, _FALLBACK_RATES)
+    return RATES.get(_normalize(model), _FALLBACK_RATES)
 
 
 def estimate_book_cost(
     model: str, *, chapters: int = 12, words_per_chapter: int = 3500
 ) -> float:
-    """Rough USD estimate for a generated book at a given model's rates.
-
-    Calibrated against real runs (~$3 for a 10-chapter opus-4-7 book). The
-    answer is approximate — chapter count and length are model-decided, and
-    cache hit rates depend on prompt stability — but it's sufficient for
-    comparing models in the picker.
-    """
+    """Rough USD estimate for a generated book at a given model's rates."""
     r = rates_for(model)
 
     outline_in = 2_500
@@ -39,7 +71,7 @@ def estimate_book_cost(
     refine_calls = 2
     refine_in_per = 2_000
     refine_out_per = 1_500
-    cache_prefix = 8_000  # style guide + outline JSON, cached after the first chapter
+    cache_prefix = 8_000
     chapter_fresh_in_per = 700
     chapter_out_per = int(words_per_chapter * 1.3)
 
@@ -57,15 +89,22 @@ def estimate_book_cost(
 
 
 _MODEL_ONELINERS = {
-    "claude-opus-4-7": "Best quality, slowest, most expensive",
-    "claude-opus-4-6": "Same family as 4-7; one rev older",
-    "claude-sonnet-4-6": "Strong middle ground — good polish, ~5× cheaper than Opus",
-    "claude-haiku-4-5": "Fast and cheap; rougher prose, fine for cheatsheets/refs",
+    "anthropic/claude-opus-4-7": "Best Anthropic prose — slowest, most expensive",
+    "anthropic/claude-opus-4-6": "Same family as 4-7; one rev older",
+    "anthropic/claude-sonnet-4-6": "Strong middle ground — good polish, ~5× cheaper than Opus",
+    "anthropic/claude-haiku-4-5": "Fast and cheap; rougher prose",
+    "openai/gpt-5":      "OpenAI flagship — strong instruction following",
+    "openai/gpt-5-mini": "Cheaper GPT-5; good drafting workhorse",
+    "openai/gpt-5-nano": "Cheapest OpenAI; fine for refs/cheatsheets",
+    "google/gemini-2.5-pro":   "Strong Gemini — long context, good quality",
+    "google/gemini-2.5-flash": "Cheapest credible option for bulk drafting",
+    "deepseek/deepseek-chat":     "DeepSeek V3.2 — strong cost/quality ratio",
+    "deepseek/deepseek-reasoner": "DeepSeek R1 — reasoning model; slower",
 }
 
 
 def model_oneliner(model: str) -> str:
-    return _MODEL_ONELINERS.get(model, "")
+    return _MODEL_ONELINERS.get(_normalize(model), "via OpenRouter / pass-through")
 
 
 @dataclass
@@ -76,7 +115,7 @@ class Tally:
     cache_read_tokens: int = 0
     api_calls: int = 0
     images: int = 0
-    model: str = "claude-sonnet-4-6"
+    model: str = "anthropic/claude-sonnet-4-6"
     _lock: Lock = field(default_factory=Lock, repr=False)
 
     def record_usage(self, model: str, usage: Any) -> None:
@@ -93,7 +132,7 @@ class Tally:
             self.cache_creation_tokens += cc
             self.cache_read_tokens += cr
             if model:
-                self.model = model
+                self.model = _normalize(model)
 
     def record_image(self) -> None:
         with self._lock:
@@ -127,8 +166,10 @@ class Tally:
         cw_usd = self.cache_creation_tokens * r["cache_w"] / 1_000_000
         cr_usd = self.cache_read_tokens * r["cache_r"] / 1_000_000
         img_usd = self.images * OPENAI_IMAGE_USD
+        provider = self.model.partition("/")[0] or "?"
         return [
             f"  Model:      {self.model}",
+            f"  Provider:   {provider}",
             f"  API calls:  {self.api_calls}",
             f"  Input:      {self.input_tokens:>9,} tok  ${in_usd:.4f}",
             f"  Output:     {self.output_tokens:>9,} tok  ${out_usd:.4f}",
@@ -136,7 +177,7 @@ class Tally:
             f"  Cache rd.:  {self.cache_read_tokens:>9,} tok  ${cr_usd:.4f}",
             f"  Images:     {self.images:>9}      ${img_usd:.4f}",
             f"  Total:      ${self.total_usd:.4f}",
-            "  (estimate — see console.anthropic.com for actual billing)",
+            "  (estimate — see provider console for actual billing)",
         ]
 
 
@@ -150,7 +191,7 @@ def get_tally() -> Tally:
     return _tally
 
 
-def reset_tally(model: str = "claude-sonnet-4-6") -> Tally:
+def reset_tally(model: str = "anthropic/claude-sonnet-4-6") -> Tally:
     global _tally
-    _tally = Tally(model=model)
+    _tally = Tally(model=_normalize(model))
     return _tally

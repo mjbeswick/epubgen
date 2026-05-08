@@ -6,8 +6,8 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from epubgen.anthropic_client import create_message
 from epubgen.errors import ApiError
+from epubgen.llm import create_message
 from epubgen.logsetup import get_logger
 from epubgen.prompts.chapter import build_chapter_messages, build_revise_messages
 from epubgen.schema import Chapter, Options, Outline
@@ -99,7 +99,9 @@ async def generate_all(
             if progress:
                 progress(ch.number, "start", None, ch.title)
             t0 = time.monotonic()
-            text, stats = await generate_chapter(style, outline, ch, opts, sources_text=sources_text)
+            text, stats = await generate_chapter(
+                style, outline, ch, opts, sources_text=sources_text
+            )
             elapsed = time.monotonic() - t0
             atomic_write_text(path, text)
             log.info(

@@ -133,25 +133,57 @@ def step_topic(state: State, allow_back: bool) -> StepResult:
 
 
 def step_model(state: State, allow_back: bool) -> StepResult:
-    from epubgen import userprefs
-    from epubgen.costs import ANTHROPIC_RATES, estimate_book_cost, model_oneliner
+    import os
 
-    # Sort ascending by estimated cost so the cheapest options come first.
-    models_sorted = sorted(ANTHROPIC_RATES.keys(), key=estimate_book_cost)
+    from epubgen import userprefs
+    from epubgen.costs import RATES, estimate_book_cost, model_oneliner
+
+    # Provider → required env var (for "key missing" hint in the picker).
+    provider_envs = {
+        "anthropic":  ("ANTHROPIC_API_KEY",),
+        "openai":     ("OPENAI_API_KEY",),
+        "google":     ("GOOGLE_API_KEY", "GEMINI_API_KEY"),
+        "deepseek":   ("DEEPSEEK_API_KEY",),
+        "openrouter": ("OPENROUTER_API_KEY",),
+    }
+
+    def _has_key(provider: str) -> bool:
+        return any(os.environ.get(e) for e in provider_envs.get(provider, ()))
+
+    # Group by provider, sort each group by estimated cost asc.
+    grouped: dict[str, list[str]] = {}
+    for full_id in RATES:
+        prov = full_id.partition("/")[0]
+        grouped.setdefault(prov, []).append(full_id)
+    for prov in grouped:
+        grouped[prov].sort(key=estimate_book_cost)
+
+    # Order providers by cheapest-cheapest model first.
+    provider_order = sorted(grouped, key=lambda p: estimate_book_cost(grouped[p][0]))
 
     choices: list[questionary.Choice | questionary.Separator] = []
-    for m in models_sorted:
-        est = estimate_book_cost(m)
-        oneliner = model_oneliner(m)
-        title = f"{m:<22}  ~${est:>5.2f}   {oneliner}"
-        choices.append(questionary.Choice(title=title, value=m))
+    for prov in provider_order:
+        key_set = _has_key(prov)
+        suffix = "" if key_set else "  ⚠ key not set"
+        choices.append(questionary.Separator(f"── {prov}{suffix} " + "─" * 30))
+        for m in grouped[prov]:
+            est = estimate_book_cost(m)
+            short_id = m.split("/", 1)[1]
+            oneliner = model_oneliner(m)
+            title = f"{short_id:<32}  ~${est:>5.2f}   {oneliner}"
+            disabled = None if key_set else "no API key"
+            choices.append(questionary.Choice(title=title, value=m, disabled=disabled))
     choices.extend(_navchoices(allow_back=allow_back))
+
+    # Default may still be a legacy bare id; normalize for the picker.
+    from epubgen.llm import normalize_model
+    default_id = normalize_model(state.model)
 
     answer = questionary.select(
         "Model — estimate is for a typical 10-chapter book; "
-        "actual billing comes from console.anthropic.com:",
+        "actual billing comes from each provider's console:",
         choices=choices,
-        default=state.model,
+        default=default_id,
     ).ask()
     decision = _decide(answer, allow_back)
     if decision is not None:

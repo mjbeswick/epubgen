@@ -30,12 +30,47 @@ def _check_python() -> Check:
     return Check("python ≥ 3.12", OK, f"{major}.{minor}.{sys.version_info.micro}")
 
 
-def _check_anthropic_key() -> Check:
-    key = os.environ.get("ANTHROPIC_API_KEY")
-    if not key:
-        return Check("ANTHROPIC_API_KEY", FAIL, "not set", fatal=True)
-    masked = f"{key[:7]}…{key[-4:]}" if len(key) > 12 else "set"
-    return Check("ANTHROPIC_API_KEY", OK, masked)
+# Each entry: (env, label, is_llm_provider). LLM-provider keys count toward the
+# "at least one provider must be set" check. Non-LLM keys are advisory only.
+_PROVIDER_KEYS: list[tuple[str, str, bool]] = [
+    ("ANTHROPIC_API_KEY",  "Anthropic provider",       True),
+    ("OPENAI_API_KEY",     "OpenAI provider + cover image fallback", True),
+    ("GOOGLE_API_KEY",     "Google Gemini provider",   True),
+    ("GEMINI_API_KEY",     "Google Gemini (alt env)",  True),
+    ("DEEPSEEK_API_KEY",   "DeepSeek provider",        True),
+    ("OPENROUTER_API_KEY", "OpenRouter gateway",       True),
+]
+
+
+def _key_checks() -> list[Check]:
+    out: list[Check] = []
+    for env, label, _ in _PROVIDER_KEYS:
+        key = os.environ.get(env)
+        if not key:
+            out.append(Check(env, WARN, f"not set (optional — {label})"))
+        else:
+            masked = f"{key[:7]}…{key[-4:]}" if len(key) > 12 else "set"
+            out.append(Check(env, OK, masked))
+    return out
+
+
+def _llm_provider_check() -> Check:
+    have = [env for env, _, is_llm in _PROVIDER_KEYS if is_llm and os.environ.get(env)]
+    # Backward compat: missing ANTHROPIC_API_KEY alone (with no other keys) is fatal,
+    # because that's the canonical default and existing scripts/tests rely on it.
+    if not have:
+        return Check(
+            "ANTHROPIC_API_KEY",
+            FAIL,
+            "not set — need at least one provider key "
+            "(Anthropic / OpenAI / Google / DeepSeek / OpenRouter)",
+            fatal=True,
+        )
+    return Check(
+        "LLM provider",
+        OK,
+        f"{len(have)} key(s) configured: {', '.join(have)}",
+    )
 
 
 def _check_pandoc() -> Check:
@@ -84,27 +119,18 @@ def _check_vl_convert() -> Check:
     return Check("vl-convert (charts)", OK, "available")
 
 
-def _check_openai_key() -> Check:
-    key = os.environ.get("OPENAI_API_KEY")
-    if not key:
-        return Check(
-            "OPENAI_API_KEY",
-            WARN,
-            "not set (optional; SVG cover fallback will be used)",
-        )
-    return Check("OPENAI_API_KEY", OK, "set")
-
-
 def run_checks() -> list[Check]:
-    return [
-        _check_python(),
-        _check_anthropic_key(),
-        _check_pandoc(),
-        _check_mmdc(),
-        _check_vl_convert(),
-        _check_kindlepreviewer(),
-        _check_openai_key(),
-    ]
+    checks: list[Check] = [_check_python(), _llm_provider_check()]
+    checks.extend(_key_checks())
+    checks.extend(
+        [
+            _check_pandoc(),
+            _check_mmdc(),
+            _check_vl_convert(),
+            _check_kindlepreviewer(),
+        ]
+    )
+    return checks
 
 
 def fatal_checks(checks: list[Check]) -> list[Check]:

@@ -1,6 +1,6 @@
 # epubgen
 
-Generate professional EPUB books from a topic + style using the Anthropic API. Resumable, prompt-cached, and ready for Kindle.
+Generate professional EPUB books from a topic + style using your choice of LLM provider (Anthropic, OpenAI, Google Gemini, DeepSeek, or any model via OpenRouter). Resumable, prompt-cached, and ready for Kindle.
 
 ```
 epubgen generate "Python performance optimization" --style oreilly --out book.epub
@@ -13,7 +13,7 @@ epubgen wizard
 - **Interactive wizard** — `questionary` flow that picks a style, brainstorms three title framings (with hint-driven regeneration), drafts a back-cover description, and threads everything into the outline.
 - **Rich content** — code (highlighted), tables, math (`$...$` / `$$...$$` → MathML), Mermaid diagrams, Vega-Lite charts, and AI-generated images, all from fenced blocks the model emits.
 - **E-reader mode** — `--ereader` (default **on**) tunes for ~6" reflowable screens (Kindle/Kobo/KOReader/Pocketbook): code lines ≤60 chars, monochrome syntax theme, AZW3 output if `kindlepreviewer` is present. Pass `--no-ereader` for tablet/desktop output. The Kindle-specific PNG figure conversion is gone — SVG works on every modern reader.
-- **Prompt caching** — style guide, optional source bundle, and outline cached at three `cache_control` breakpoints; per-chapter calls reuse the prefix at ~10% token cost.
+- **Prompt caching** — style guide, optional source bundle, and outline cached at three breakpoints. Anthropic uses explicit `cache_control`; OpenAI/DeepSeek use automatic prefix caching; Gemini uses explicit `caches.create` for the chapter hot path. Per-chapter calls reuse the prefix at ~10% token cost.
 - **Source grounding** — pass `--source PATH` (repeatable, accepts files/dirs/globs) to inject reference material into every prompt. Outline scope and chapter facts are tied to your sources instead of model priors. PDFs/.docx/.epub/.html convert via pandoc; plain `.md`/`.txt` read directly.
 - **Resumable** — chapters written atomically to `<out>.work/ch-NN.md`; re-running picks up where it left off. `options.json` is frozen on first run; mismatches refuse to resume unless `--force`.
 - **Concurrent** — async chapter generation with a small pool (default 3).
@@ -30,7 +30,17 @@ uv tool install --editable .          # global `epubgen` command, edits picked u
 brew install pandoc                    # required
 ```
 
-Set `ANTHROPIC_API_KEY` in your env. Run `epubgen doctor` to verify.
+Set at least one provider API key in your env. Run `epubgen doctor` to verify.
+
+| Provider | Env var | Notes |
+|---|---|---|
+| Anthropic | `ANTHROPIC_API_KEY` | Native client; full prompt caching via `cache_control`. Default. |
+| OpenAI | `OPENAI_API_KEY` | Auto prefix caching. Also used for cover images. |
+| Google Gemini | `GOOGLE_API_KEY` (or `GEMINI_API_KEY`) | Explicit context caching for chapter hot path. |
+| DeepSeek | `DEEPSEEK_API_KEY` | OpenAI-compat; auto prefix caching. Cheapest credible option. |
+| OpenRouter | `OPENROUTER_API_KEY` | Catch-all gateway — pass any `vendor/model` tail. |
+
+Pick a model with `--model <provider>/<model>` (or persisted via wizard). Legacy bare `claude-*` ids still work.
 
 ### Optional dependencies
 
@@ -47,12 +57,17 @@ If anything is missing, `epubgen doctor` shows the status:
 
 ```
 ✓ python ≥ 3.12        3.14.4
+✓ LLM provider         3 key(s) configured: ANTHROPIC_API_KEY, OPENAI_API_KEY, DEEPSEEK_API_KEY
 ✓ ANTHROPIC_API_KEY    sk-ant-…abcd
+✓ OPENAI_API_KEY       sk-…wxyz
+! GOOGLE_API_KEY       not set (optional — Google Gemini provider)
+! GEMINI_API_KEY       not set (optional — Google Gemini (alt env))
+✓ DEEPSEEK_API_KEY     sk-…1234
+! OPENROUTER_API_KEY   not set (optional — OpenRouter gateway)
 ✓ pandoc               /opt/homebrew/bin/pandoc
 ! mmdc (mermaid-cli)   not on PATH (optional)
 ✓ vl-convert (charts)  available
 ! kindlepreviewer      not on PATH (optional; needed only for .azw3)
-✓ OPENAI_API_KEY       set
 ```
 
 ## Usage
@@ -76,7 +91,8 @@ epubgen doctor               Preflight dependency check
 -w, --workdir PATH         Work dir (default: <out>.work)
 -c, --chapters INTEGER     Target chapter count (model decides if unset)
 -W, --words INTEGER        Target words per chapter (default: 3000)
--m, --model TEXT           Anthropic model (default: claude-opus-4-7)
+-m, --model TEXT           Model id `provider/model` (default: persisted, else
+                           `anthropic/claude-sonnet-4-6`). Legacy bare `claude-*` accepted.
     --concurrency INTEGER  Parallel chapters (default: 3)
     --ereader/--no-ereader Tune for ~6" e-readers (default: on). --kindle is an alias.
     --no-cover             Skip cover generation
@@ -145,8 +161,8 @@ Adding a new style is two files: `src/epubgen/styles/<name>.md` (with `## Voice`
 
 ## How it works
 
-1. **Outline** — one Anthropic call with a `cache_control` breakpoint on the style guide. Model returns structured JSON via tool-use; pydantic validates with one repair retry.
-2. **Chapters** — async pool (default concurrency 3). Each call has two `cache_control` breakpoints: style guide (stable across all books in this style) and outline JSON (stable within this run). Only the user message ("write chapter N") is volatile per call.
+1. **Outline** — one model call with a cache breakpoint on the style guide. Model returns structured JSON via tool-use; pydantic validates with one repair retry.
+2. **Chapters** — async pool (default concurrency 3). On Anthropic, each call has two `cache_control` breakpoints (style guide stable across all books, outline JSON stable within this run). On OpenAI/DeepSeek, automatic prefix caching does the equivalent. On Gemini, an explicit `caches.create` is used for the chapter hot path (falls back gracefully if the prefix is below the model's minimum cacheable size). Only the user message ("write chapter N") is volatile per call.
 3. **Figures** — post-pass scans every chapter for fenced `mermaid` / `vegalite` / `image` blocks, renders each, rewrites the markdown to image references.
 4. **Cover** — OpenAI gpt-image-1 if `OPENAI_API_KEY` is set, otherwise a deterministic per-style SVG.
 5. **Assemble** — pandoc converts the markdown chapters into a single EPUB3 with TOC, per-style CSS, embedded cover, native MathML.
