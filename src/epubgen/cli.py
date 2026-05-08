@@ -106,7 +106,13 @@ def generate(
             help="Force a uniform target words per chapter (default: model picks per chapter)",
         ),
     ] = None,
-    model: Annotated[str, typer.Option("--model", "-m")] = "claude-sonnet-4-6",
+    model: Annotated[
+        str | None,
+        typer.Option(
+            "--model", "-m",
+            help="Anthropic model (default: persisted user preference, else claude-sonnet-4-6)",
+        ),
+    ] = None,
     concurrency: Annotated[int, typer.Option("--concurrency")] = 3,
     ereader: Annotated[
         bool,
@@ -147,6 +153,10 @@ def generate(
     if resolved_log is not None:
         typer.secho(f"📝 logging to {resolved_log}", fg=typer.colors.CYAN, err=True)
     get_logger("cli").info("epubgen generate: topic=%r style=%s", topic, style)
+    from epubgen import userprefs
+
+    if model is None:
+        model = userprefs.get_default_model()
     out_path = out or Path(f"./{slugify(topic)}.epub")
     preferred_title = None
     preferred_subtitle = None

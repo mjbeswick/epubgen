@@ -132,26 +132,21 @@ def step_topic(state: State, allow_back: bool) -> StepResult:
     return "next"
 
 
-_PREFERRED_MODEL_ORDER = (
-    "claude-sonnet-4-6",
-    "claude-opus-4-7",
-    "claude-opus-4-6",
-    "claude-haiku-4-5",
-)
-
-
 def step_model(state: State, allow_back: bool) -> StepResult:
+    from epubgen import userprefs
     from epubgen.costs import ANTHROPIC_RATES, estimate_book_cost, model_oneliner
 
+    # Sort ascending by estimated cost so the cheapest options come first.
+    models_sorted = sorted(ANTHROPIC_RATES.keys(), key=estimate_book_cost)
+
     choices: list[questionary.Choice | questionary.Separator] = []
-    for m in _PREFERRED_MODEL_ORDER:
-        if m not in ANTHROPIC_RATES:
-            continue
+    for m in models_sorted:
         est = estimate_book_cost(m)
         oneliner = model_oneliner(m)
         title = f"{m:<22}  ~${est:>5.2f}   {oneliner}"
         choices.append(questionary.Choice(title=title, value=m))
     choices.extend(_navchoices(allow_back=allow_back))
+
     answer = questionary.select(
         "Model — estimate is for a typical 10-chapter book; "
         "actual billing comes from console.anthropic.com:",
@@ -162,6 +157,7 @@ def step_model(state: State, allow_back: bool) -> StepResult:
     if decision is not None:
         return decision
     state.model = answer  # type: ignore[assignment]
+    userprefs.set_default_model(state.model)
     return "next"
 
 
@@ -643,11 +639,13 @@ _NEW = object()
 
 def _maybe_resume() -> tuple[State, int, str | None]:
     """Return (state, step_index, session_id_or_None_for_new)."""
-    from epubgen import wizard_state
+    from epubgen import userprefs, wizard_state
+
+    fresh_state = State(model=userprefs.get_default_model())
 
     sessions = wizard_state.list_sessions()
     if not sessions:
-        return State(), 0, None
+        return fresh_state, 0, None
 
     choices: list[questionary.Choice | questionary.Separator] = []
     for s in sessions:
@@ -663,18 +661,18 @@ def _maybe_resume() -> tuple[State, int, str | None]:
     answer = questionary.select("Resume one or start fresh?", choices=choices).ask()
 
     if answer is None:
-        return State(), 0, None  # treat as new
+        return fresh_state, 0, None  # treat as new
     if answer is _NEW:
-        return State(), 0, None
+        return fresh_state, 0, None
     if answer == "__purge__":
         for s in sessions:
             wizard_state.clear(s.session_id)
-        return State(), 0, None
+        return fresh_state, 0, None
 
     loaded = wizard_state.load(answer)
     if loaded is None:
         # File vanished between list and load — start new.
-        return State(), 0, None
+        return fresh_state, 0, None
     state, idx = loaded
     return state, idx, answer
 
