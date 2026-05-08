@@ -13,6 +13,78 @@ def canonical_outline_text(outline: Outline) -> str:
     return json.dumps(outline.model_dump(), sort_keys=True, indent=2)
 
 
+def build_revise_messages(
+    style: Style,
+    outline: Outline,
+    chapter: Chapter,
+    current_text: str,
+    instruction: str,
+    opts: Options,
+    sources_text: str = "",
+) -> dict[str, Any]:
+    """Build a payload that asks the model to revise an existing chapter.
+
+    Reuses the same cached system blocks (style, optional sources, outline) as
+    fresh chapter generation so the cache prefix is preserved across rewrite
+    and revise calls in the same run.
+    """
+    ereader_clause = (
+        "\n\nE-reader constraint (≈6\" screens, reflowable): code lines must be ≤60 characters; "
+        "tables ≤4 columns. Apply this to any new or modified content."
+        if opts.ereader
+        else ""
+    )
+    user = (
+        f'Revise Chapter {chapter.number}: "{chapter.title}".\n\n'
+        f"Current content (between <<< >>> markers):\n\n"
+        f"<<<\n{current_text.rstrip()}\n>>>\n\n"
+        f"Instruction from the user:\n{instruction}\n\n"
+        "Return ONLY the revised chapter markdown — no preamble, no commentary, "
+        "no explanation of changes. Begin with `# {title}` as the H1. Preserve "
+        "untouched sections verbatim; only modify what the instruction requires. "
+        "If adding new content, place it where it belongs structurally (the user "
+        "may specify, otherwise use your judgement). Keep the chapter's voice "
+        "consistent with the surrounding material and the style guide."
+        f"{ereader_clause}"
+    )
+    system: list[dict[str, Any]] = [
+        {
+            "type": "text",
+            "text": style.guide,
+            "cache_control": {"type": "ephemeral"},
+        },
+    ]
+    if sources_text:
+        system.append({
+            "type": "text",
+            "text": sources_text,
+            "cache_control": {"type": "ephemeral"},
+        })
+    system.append({
+        "type": "text",
+        "text": (
+            "Full book outline (for cross-chapter context):\n\n"
+            + canonical_outline_text(outline)
+        ),
+        "cache_control": {"type": "ephemeral"},
+    })
+    sources_clause = (
+        " Any new factual claims must be supported by the reference sources above."
+        if sources_text else ""
+    )
+    system.append({
+        "type": "text",
+        "text": (
+            "You revise existing chapters according to a user instruction. "
+            "Respect the existing prose; do not rewrite passages that the "
+            "instruction does not touch."
+            f"{sources_clause}\n\n"
+            + ANTI_ATTRIBUTION
+        ),
+    })
+    return {"system": system, "messages": [{"role": "user", "content": user}]}
+
+
 def build_chapter_messages(
     style: Style, outline: Outline, chapter: Chapter, opts: Options, sources_text: str = ""
 ) -> dict[str, Any]:

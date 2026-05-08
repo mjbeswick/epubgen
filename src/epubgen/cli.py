@@ -345,6 +345,12 @@ def _amend_run(fn, /, *args, **kwargs) -> None:
         log.error("config error: %s", e)
         typer.secho(f"config: {e}", fg=typer.colors.RED, err=True)
         raise typer.Exit(EXIT_USER) from e
+    except ApiError as e:
+        log.error("api error: %s", e, exc_info=e.hint is None)
+        typer.secho(f"api: {e}", fg=typer.colors.RED, err=True)
+        if e.hint:
+            typer.secho(f"  → {e.hint}", fg=typer.colors.YELLOW, err=True)
+        raise typer.Exit(EXIT_API) from e
     except PandocError as e:
         log.error("pandoc error: %s", e)
         typer.secho(f"pandoc: {e}", fg=typer.colors.RED, err=True)
@@ -524,6 +530,40 @@ def amend_edit(
         return None
 
     _amend_run(_do)
+
+
+@amend_app.command("revise")
+def amend_revise(
+    workdir: Annotated[Path | None, typer.Argument()] = None,
+    n: Annotated[int, typer.Argument(help="Chapter number to revise")] = 0,
+    instruction: Annotated[
+        str | None,
+        typer.Option(
+            "--instruction", "-i",
+            help="What to change. Examples: "
+            "'add a section on retries', 'tighten section 2', "
+            "'fix the example that calls os.fork on Windows'.",
+        ),
+    ] = None,
+    rebuild: Annotated[bool, typer.Option("--rebuild/--no-rebuild")] = True,
+    out: Annotated[Path | None, typer.Option("--out", "-o")] = None,
+    verbose: Annotated[bool, typer.Option("--verbose", "-v")] = False,
+) -> None:
+    """Modify an existing chapter according to a freeform instruction."""
+    if n <= 0:
+        typer.secho("chapter number required", fg=typer.colors.RED, err=True)
+        raise typer.Exit(EXIT_USER)
+    if not instruction:
+        typer.secho("--instruction is required", fg=typer.colors.RED, err=True)
+        raise typer.Exit(EXIT_USER)
+    configure_logging(verbose=verbose, log_file=None)
+    _preflight()  # this op calls the API
+    resolved = _resolve_resume_workdir(workdir)
+    if resolved is None:
+        raise typer.Exit(EXIT_USER)
+    from epubgen.amend_pipeline import revise
+
+    _amend_run(revise, resolved, n, instruction, out=out, rebuild_after=rebuild)
 
 
 @amend_app.command("recover")

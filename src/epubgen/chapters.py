@@ -9,7 +9,7 @@ from typing import Any
 from epubgen.anthropic_client import create_message
 from epubgen.errors import ApiError
 from epubgen.logsetup import get_logger
-from epubgen.prompts.chapter import build_chapter_messages
+from epubgen.prompts.chapter import build_chapter_messages, build_revise_messages
 from epubgen.schema import Chapter, Options, Outline
 from epubgen.styles import Style
 from epubgen.workdir import atomic_write_text, chapter_path
@@ -30,6 +30,30 @@ def _extract_text(response: Any) -> str:
             _CHAPTER_MAX_TOKENS,
         )
     return "\n".join(parts).strip() + "\n"
+
+
+async def revise_chapter(
+    style: Style,
+    outline: Outline,
+    chapter: Chapter,
+    current_text: str,
+    instruction: str,
+    opts: Options,
+    sources_text: str = "",
+) -> tuple[str, dict[str, int]]:
+    payload = build_revise_messages(
+        style, outline, chapter, current_text, instruction, opts, sources_text=sources_text
+    )
+    resp = await create_message(model=opts.model, max_tokens=_CHAPTER_MAX_TOKENS, **payload)
+    text = _extract_text(resp)
+    usage = getattr(resp, "usage", None)
+    cache_stats = {
+        "cache_creation_input_tokens": getattr(usage, "cache_creation_input_tokens", 0) or 0,
+        "cache_read_input_tokens": getattr(usage, "cache_read_input_tokens", 0) or 0,
+        "input_tokens": getattr(usage, "input_tokens", 0) or 0,
+        "output_tokens": getattr(usage, "output_tokens", 0) or 0,
+    } if usage else {}
+    return text, cache_stats
 
 
 async def generate_chapter(

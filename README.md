@@ -172,10 +172,21 @@ epubgen amend retitle  <wd> --title "..." [--subtitle "..." | --clear-subtitle]
 epubgen amend remove   <wd> N               # drop chapter N, renumber
 epubgen amend reorder  <wd> FROM TO         # move chapter to new position
 epubgen amend edit     <wd> N               # open ch-NN.md in $EDITOR
+epubgen amend revise   <wd> N -i "..."      # model-driven edit (add / tighten / fix)
 epubgen amend recover  <wd> [--cover-prompt "..."]   # regen cover
 ```
 
 `<wd>` accepts the same flexible argument as `resume` — a workdir path, an `.epub` path (workdir derived as `<epub>.work`), or a directory to search interactively. Mutating commands take `--no-rebuild` to skip reassembly when chaining edits, and `--out PATH` to override the output epub. Destructive ops back up the prior file to `<wd>/.archive/`.
+
+`revise` is the workhorse for content changes: it sends the current chapter plus your instruction to the model and writes the revised chapter back. Examples:
+
+```
+epubgen amend revise mybook.epub 5 -i "add a section on connection retries at the end"
+epubgen amend revise mybook.epub 3 -i "tighten section 2 to half its length"
+epubgen amend revise mybook.epub 7 -i "fix the example — os.fork doesn't exist on Windows"
+```
+
+The cached prefix (style guide + sources + outline) is reused across calls in the same run, so revisions are cheap.
 
 ## Debugging
 

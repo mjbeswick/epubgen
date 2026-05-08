@@ -4,20 +4,22 @@ with diagram rendering, cover handling, and EPUB reassembly.
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 
 from epubgen import amend
 from epubgen.assemble import assemble, maybe_make_azw3
+from epubgen.chapters import revise_chapter
 from epubgen.cover import existing_cover, generate_cover
 from epubgen.diagrams import render_all
-from epubgen.errors import FsError
+from epubgen.errors import ConfigError, FsError
 from epubgen.lock import lock_workdir
 from epubgen.logsetup import get_logger
 from epubgen.progress import phase
 from epubgen.prompts.cover import build_cover_image_prompt
 from epubgen.schema import Options, Outline
 from epubgen.styles import load_style
-from epubgen.workdir import chapter_path, slugify
+from epubgen.workdir import atomic_write_text, chapter_path, slugify
 
 log = get_logger("amend_pipeline")
 
@@ -30,6 +32,51 @@ def _opts_from_frozen(frozen: dict, *, workdir: Path, out: Path) -> Options:
     # Defensive: drop keys Options doesn't know about so older workdirs still load.
     allowed = set(Options.model_fields.keys())
     return Options(out=out, workdir=workdir, **{k: v for k, v in frozen.items() if k in allowed})
+
+
+def revise(
+    workdir: Path,
+    n: int,
+    instruction: str,
+    *,
+    out: Path | None = None,
+    rebuild_after: bool = True,
+) -> Path | None:
+    """Revise chapter `n` per `instruction` and (optionally) reassemble.
+
+    The model receives the current chapter text + the instruction and returns
+    the revised chapter. Prior content is archived to <wd>/.archive/.
+    """
+    outline, frozen = amend.load_workdir(workdir)
+    chapter = next((c for c in outline.chapters if c.number == n), None)
+    if chapter is None:
+        raise ConfigError(f"chapter {n} not found in outline")
+    ch_path = chapter_path(workdir, n)
+    if not ch_path.exists():
+        raise FsError(f"chapter file missing: {ch_path}")
+    current = ch_path.read_text(encoding="utf-8")
+    out_path = _resolve_out(out, outline)
+    opts = _opts_from_frozen(frozen, workdir=workdir, out=out_path)
+    style = load_style(outline.style)
+
+    with lock_workdir(workdir):
+        with phase(f"Revising chapter {n}: {chapter.title!r}"):
+            text, stats = asyncio.run(
+                revise_chapter(style, outline, chapter, current, instruction, opts)
+            )
+        log.info(
+            "ch %02d revised (out_tok=%s cache_read=%s cache_create=%s)",
+            n,
+            stats.get("output_tokens"),
+            stats.get("cache_read_input_tokens"),
+            stats.get("cache_creation_input_tokens"),
+        )
+        amend.archive(workdir, ch_path)
+        atomic_write_text(ch_path, text)
+
+    if not rebuild_after:
+        return None
+    return rebuild(workdir, out=out)
 
 
 def rebuild(workdir: Path, *, out: Path | None = None, regen_cover: bool = False) -> Path:
