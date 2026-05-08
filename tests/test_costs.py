@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from pathlib import Path
 
 from epubgen.costs import OPENAI_IMAGE_USD, Tally, rates_for, reset_tally
 
@@ -44,9 +45,9 @@ def test_image_cost():
     assert abs(t.total_usd - 2 * OPENAI_IMAGE_USD) < 1e-6
 
 
-def test_unknown_model_falls_back_to_opus_rates():
+def test_unknown_model_falls_back_to_sonnet_rates():
     rates = rates_for("some-unreleased-model")
-    assert rates["in"] == 15.00
+    assert rates["in"] == 3.00  # sonnet rate, the fallback default
 
 
 def test_record_usage_handles_none():
@@ -70,3 +71,29 @@ def test_summary_lines_includes_dollar_total():
     lines = t.summary_lines()
     assert any("Total:" in line and "$" in line for line in lines)
     assert any("API calls" in line for line in lines)
+    assert any("estimate" in line.lower() for line in lines)
+
+
+def test_estimate_book_cost_orders_by_model_tier():
+    from epubgen.costs import estimate_book_cost
+
+    haiku = estimate_book_cost("claude-haiku-4-5")
+    sonnet = estimate_book_cost("claude-sonnet-4-6")
+    opus = estimate_book_cost("claude-opus-4-7")
+    assert haiku < sonnet < opus
+
+
+def test_estimate_book_cost_scales_with_chapter_count():
+    from epubgen.costs import estimate_book_cost
+
+    short = estimate_book_cost("claude-sonnet-4-6", chapters=6)
+    long = estimate_book_cost("claude-sonnet-4-6", chapters=14)
+    assert long > short
+
+
+def test_default_model_is_sonnet():
+    from epubgen.costs import Tally
+    from epubgen.schema import Options
+
+    assert Options(topic="x", out=Path("/tmp/x.epub")).model == "claude-sonnet-4-6"
+    assert Tally().model == "claude-sonnet-4-6"

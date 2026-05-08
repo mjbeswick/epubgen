@@ -50,7 +50,7 @@ class Options(BaseModel):
     workdir: Path | None = None
     chapters: int | None = None
     words: int | None = None
-    model: str = "claude-opus-4-7"
+    model: str = "claude-sonnet-4-6"
     concurrency: int = 3
     ereader: bool = True
     no_cover: bool = False

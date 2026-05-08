@@ -35,6 +35,7 @@ CANCEL = "__cancel__"
 class State:
     topic: str | None = None
     style: str | None = None
+    model: str = "claude-sonnet-4-6"
     refined: RefinedTopic | None = None
     description: str | None = None
     out_path: Path | None = None
@@ -48,6 +49,7 @@ class State:
         return Options(
             topic=self.topic,
             style=self.style,
+            model=self.model,
             out=self.out_path,
             workdir=self.workdir,
             ereader=self.ereader,
@@ -62,6 +64,7 @@ class State:
 # regenerates downstream artifacts.
 _STEP_FIELDS: dict[str, tuple[str, ...]] = {
     "topic": ("topic",),
+    "model": ("model",),
     "style": ("style",),
     "title": ("refined",),
     "description": ("description",),
@@ -126,6 +129,39 @@ def step_topic(state: State, allow_back: bool) -> StepResult:
     if not answer.strip():
         return "cancel"
     state.topic = answer.strip()
+    return "next"
+
+
+_PREFERRED_MODEL_ORDER = (
+    "claude-sonnet-4-6",
+    "claude-opus-4-7",
+    "claude-opus-4-6",
+    "claude-haiku-4-5",
+)
+
+
+def step_model(state: State, allow_back: bool) -> StepResult:
+    from epubgen.costs import ANTHROPIC_RATES, estimate_book_cost, model_oneliner
+
+    choices: list[questionary.Choice | questionary.Separator] = []
+    for m in _PREFERRED_MODEL_ORDER:
+        if m not in ANTHROPIC_RATES:
+            continue
+        est = estimate_book_cost(m)
+        oneliner = model_oneliner(m)
+        title = f"{m:<22}  ~${est:>5.2f}   {oneliner}"
+        choices.append(questionary.Choice(title=title, value=m))
+    choices.extend(_navchoices(allow_back=allow_back))
+    answer = questionary.select(
+        "Model — estimate is for a typical 10-chapter book; "
+        "actual billing comes from console.anthropic.com:",
+        choices=choices,
+        default=state.model,
+    ).ask()
+    decision = _decide(answer, allow_back)
+    if decision is not None:
+        return decision
+    state.model = answer  # type: ignore[assignment]
     return "next"
 
 
@@ -205,7 +241,7 @@ def step_title(state: State, allow_back: bool) -> StepResult:
         with phase(f"Drafting framings for a {state.style} book"):
             try:
                 result = asyncio.run(
-                    refine_topic(style, state.topic, model="claude-opus-4-7", hint=hint)
+                    refine_topic(style, state.topic, model=state.model, hint=hint)
                 )
             except Exception as e:
                 _console.print(f"[yellow]refinement skipped: {e}[/yellow]")
@@ -269,7 +305,7 @@ def step_description(state: State, allow_back: bool) -> StepResult:
                 try:
                     description = asyncio.run(
                         refine_description(
-                            style, state.topic, state.refined, model="claude-opus-4-7", hint=hint
+                            style, state.topic, state.refined, model=state.model, hint=hint
                         )
                     )
                 except Exception as e:
@@ -530,12 +566,21 @@ def step_ereader(state: State, allow_back: bool) -> StepResult:
 
 
 def step_confirm(state: State, allow_back: bool) -> StepResult:
+    from epubgen.costs import estimate_book_cost
+
     title = state.refined.title if state.refined else state.topic
-    chapters = len(state.outline.chapters) if state.outline else "?"
+    if state.outline:
+        n_chapters = len(state.outline.chapters)
+        avg_words = sum(c.word_target for c in state.outline.chapters) // n_chapters
+    else:
+        n_chapters = 12
+        avg_words = 3500
+    est = estimate_book_cost(state.model, chapters=n_chapters, words_per_chapter=avg_words)
     summary = (
         f"[bold]Title:[/bold] {title}\n"
         f"[bold]Style:[/bold] {state.style}\n"
-        f"[bold]Chapters:[/bold] {chapters}\n"
+        f"[bold]Model:[/bold] {state.model}  [dim](~${est:.2f} est.)[/dim]\n"
+        f"[bold]Chapters:[/bold] {n_chapters}\n"
         f"[bold]E-reader tuned:[/bold] {'yes' if state.ereader else 'no'}\n"
         f"[bold]Output:[/bold] {state.out_path}"
     )
@@ -560,6 +605,7 @@ def step_confirm(state: State, allow_back: bool) -> StepResult:
 
 _STEPS: list[tuple[str, callable]] = [
     ("topic", step_topic),
+    ("model", step_model),
     ("style", step_style),
     ("title", step_title),
     ("description", step_description),

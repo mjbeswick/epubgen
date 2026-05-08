@@ -106,7 +106,7 @@ def generate(
             help="Force a uniform target words per chapter (default: model picks per chapter)",
         ),
     ] = None,
-    model: Annotated[str, typer.Option("--model", "-m")] = "claude-opus-4-7",
+    model: Annotated[str, typer.Option("--model", "-m")] = "claude-sonnet-4-6",
     concurrency: Annotated[int, typer.Option("--concurrency")] = 3,
     ereader: Annotated[
         bool,
