@@ -212,3 +212,27 @@ def test_generate_gemini_cover_fallback(tmp_path: Path):
     # Without Gemini API key, should fallback to SVG
     assert result.exists()
     assert result.suffix in ('.svg', '.png')
+
+
+def test_generate_cover_for_all_styles(tmp_path: Path):
+    from epubgen.cover import generate_cover
+
+    all_styles = [
+        "oreilly",
+        "manning",
+        "pragprog",
+        "nostarch",
+        "apress",
+        "for-dummies",
+        "cheatsheet",
+        "pocket-reference",
+    ]
+
+    for style_name in all_styles:
+        style_workdir = tmp_path / style_name
+        style_workdir.mkdir(exist_ok=True)
+        style = load_style(style_name)
+        outline = _outline(f"Book: {style_name}", f"Subtitle for {style_name}")
+        result = generate_cover(outline, style, style_workdir)
+        assert result.exists(), f"Cover not generated for style {style_name}"
+        assert result.suffix in ('.svg', '.png'), f"Invalid cover format for {style_name}"
