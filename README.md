@@ -17,7 +17,7 @@ epubgen wizard
 - **Source grounding** — pass `--source PATH` (repeatable, accepts files/dirs/globs) to inject reference material into every prompt. Outline scope and chapter facts are tied to your sources instead of model priors. PDFs/.docx/.epub/.html convert via pandoc; plain `.md`/`.txt` read directly.
 - **Resumable** — chapters written atomically to `<out>.work/ch-NN.md`; re-running picks up where it left off. `options.json` is frozen on first run; mismatches refuse to resume unless `--force`.
 - **Concurrent** — async chapter generation with a small pool (default 3).
-- **Cover** — SVG fallback (always works) or OpenAI gpt-image-1 if `OPENAI_API_KEY` is set.
+- **Cover** — Style-matched full-bleed covers (1600×2400px for Kindle) with AI-generated illustrations via Google Gemini. Graceful fallback to SVG if APIs unavailable. Override with `--cover-prompt` or skip with `--no-cover`.
 - **Doctor preflight** — checks every dependency at startup; clear errors instead of mid-pipeline explosions.
 - **Structured logging** — `--verbose` and `--log[--log-file PATH]` capture full traces and per-chapter timings/token usage.
 
@@ -49,9 +49,10 @@ Pick a model with `--model <provider>/<model>` (or persisted via wizard). Legacy
 | `pandoc` | EPUB assembly | `brew install pandoc` (required) |
 | `mmdc` | Render Mermaid diagrams | `npm i -g @mermaid-js/mermaid-cli` |
 | `kindlepreviewer` | Emit `.azw3` alongside `.epub` | [Amazon Kindle Previewer](https://www.amazon.com/Kindle-Previewer/b?node=21381691011) |
-| `OPENAI_API_KEY` | Cover + content images via gpt-image-1 | env var |
+| `GOOGLE_API_KEY` | Cover illustrations via Gemini 2.0 | env var (for enhanced cover generation) |
+| `OPENAI_API_KEY` | Content images via gpt-image-1 | env var (for `image` fenced blocks) |
 
-`vl-convert` (Vega-Lite charts) is bundled — no install needed.
+`vl-convert` (Vega-Lite charts) is bundled — no install needed. Covers gracefully degrade to SVG-only if Gemini API is unavailable.
 
 If anything is missing, `epubgen doctor` shows the status:
 
@@ -159,12 +160,37 @@ Extras (loadable by name): `academic`, `penguin-classics`.
 
 Adding a new style is two files: `src/epubgen/styles/<name>.md` (with `## Voice`, `## Structure`, `## Formatting`, `## Length` sections) and `src/epubgen/styles/<name>.css`.
 
+## Covers
+
+Every book gets a professional cover, styled to match the chosen preset. The cover is 1600×2400px (full-bleed Kindle format) with:
+
+- **AI illustration** — Topic-aware image generated via Google Gemini, styled to match the book's voice (e.g., scientific engravings for O'Reilly, friendly icons for For Dummies)
+- **Branding** — Each style has a distinct template: header color, typography, layout
+- **Fallbacks** — If Gemini API is unavailable, the cover degrades gracefully to a clean SVG layout (still branded, no illustration)
+
+**Disable or customize:**
+
+```bash
+epubgen generate "Topic" --style oreilly --out book.epub               # auto-generated cover
+epubgen generate "Topic" --style oreilly --no-cover --out book.epub    # skip cover entirely
+epubgen generate "Topic" --style oreilly \
+  --cover-prompt "A futuristic city at sunset" \
+  --out book.epub                                                      # custom illustration prompt
+```
+
+**Regenerate an existing cover:**
+
+```bash
+epubgen amend recover mybook.epub                # regenerate with default prompt
+epubgen amend recover mybook.epub --cover-prompt "A mountain landscape"  # custom prompt
+```
+
 ## How it works
 
 1. **Outline** — one model call with a cache breakpoint on the style guide. Model returns structured JSON via tool-use; pydantic validates with one repair retry.
 2. **Chapters** — async pool (default concurrency 3). On Anthropic, each call has two `cache_control` breakpoints (style guide stable across all books, outline JSON stable within this run). On OpenAI/DeepSeek, automatic prefix caching does the equivalent. On Gemini, an explicit `caches.create` is used for the chapter hot path (falls back gracefully if the prefix is below the model's minimum cacheable size). Only the user message ("write chapter N") is volatile per call.
 3. **Figures** — post-pass scans every chapter for fenced `mermaid` / `vegalite` / `image` blocks, renders each, rewrites the markdown to image references.
-4. **Cover** — OpenAI gpt-image-1 if `OPENAI_API_KEY` is set, otherwise a deterministic per-style SVG.
+4. **Cover** — Style-specific SVG template with topic-aware Gemini-generated illustration (1024×1024px, embedded as base64). Falls back to SVG-only layout if Gemini unavailable. Final cover is rasterized to 1600×2400px PNG for full-bleed Kindle display.
 5. **Assemble** — pandoc converts the markdown chapters into a single EPUB3 with TOC, per-style CSS, embedded cover, native MathML.
 6. **Optional AZW3** — if `--ereader` (default on) and `kindlepreviewer` is on PATH, also emits `.azw3` alongside.
 
