@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 2400" preserveAspectRatio="xMidYMid meet">
+  <!-- Background -->
+  <rect width="1600" height="2400" fill="#f0f4ef"/>
+
+  <!-- Left accent bar (Manning brand) -->
+  <rect x="0" y="0" width="80" height="2400" fill="#2a4d3a"/>
+
+  <!-- Top header region -->
+  <rect x="0" y="0" width="1600" height="180" fill="#2a4d3a"/>
+  <text x="850" y="120" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif" font-size="44" fill="#f0f4ef" font-weight="bold">MANNING</text>
+
+  <!-- Bottom footer region -->
+  <rect x="0" y="2200" width="1600" height="200" fill="#2a4d3a"/>
+
+  <!-- Main illustration area (offset right, modern layout) -->
+  <g id="illustration-area" x="800" y="600" width="700" height="800">
+    <rect x="800" y="600" width="700" height="800" fill="#e8ede9" opacity="0.5"/>
+    <text x="1150" y="1050" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" fill="#2a4d3a" opacity="0.3">Illustration</text>
+  </g>
+
+  <!-- Decorative element - vertical rule -->
+  <line x1="750" y1="250" x2="750" y2="2100" stroke="#2a4d3a" stroke-width="2" opacity="0.2"/>
+
+  <!-- Title/subtitle area (left side) -->
+  <g id="title-area" x="100" y="400">
+    <!-- These will be rendered onto the final cover -->
+  </g>
+</svg>

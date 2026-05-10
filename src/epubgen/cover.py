@@ -9,6 +9,15 @@ from epubgen.schema import Outline
 from epubgen.styles import Style
 from epubgen.workdir import atomic_write_text
 
+# Use context-mode for Gemini integration
+HAS_GOOGLE_GENAI = False
+try:
+    from google import genai
+
+    HAS_GOOGLE_GENAI = True
+except ImportError:
+    pass
+
 logger = logging.getLogger(__name__)
 
 PALETTES = {
@@ -292,29 +301,112 @@ def rasterize_svg_to_png(svg_content: str, output_path: Path) -> bool:
         return False
 
 
+def _render_text_on_template(
+    template_svg: str, outline: Outline, style: Style
+) -> str:
+    """Add title, subtitle, and author text to an SVG template."""
+    svg = template_svg
+
+    # Inject title text (if template has a title-area group)
+    title = f'<text x="400" y="900" font-family="Georgia, serif" font-size="72" fill="#003a5d" font-weight="bold">{escape(outline.title)}</text>'
+    if '<g id="title-area"' in svg:
+        svg = svg.replace('<g id="title-area"', f'<g id="title-area">{title}')
+
+    # Inject subtitle text
+    subtitle = outline.subtitle or outline.topic
+    subtitle_text = f'<text x="400" y="1100" font-family="Georgia, serif" font-size="44" fill="#003a5d" opacity="0.8">{escape(subtitle)}</text>'
+    if '<g id="title-area"' in svg:
+        svg = svg.replace('</g>', f'{subtitle_text}</g>', 1)  # Close the title-area group
+
+    # Inject author text in footer
+    author_text = f'<text x="1500" y="2320" text-anchor="end" font-family="Arial, sans-serif" font-size="36" fill="#f4ecd8">{escape(outline.author).upper()}</text>'
+    if '<rect' in svg and 'y="2200"' in svg:
+        # Insert before closing svg tag
+        svg = svg.replace('</svg>', f'{author_text}</svg>')
+
+    return svg
+
+
 def generate_gemini_cover(
     outline: Outline, style: Style, workdir: Path, prompt: str | None = None
 ) -> Path:
     """Generate a cover illustration via Gemini and composite it into the template.
 
     Falls back to a simple SVG cover if generation fails.
-    """
-    # Generate illustration via Gemini (would need API integration)
-    # For now, this is a placeholder that returns the SVG template
-    svg_template = load_cover_template(style)
 
+    Workflow:
+    1. Try to load style-specific SVG template
+    2. Generate illustration via Gemini (if available) or placeholder
+    3. Composite illustration into template
+    4. Render title/subtitle/author text onto the composite
+    5. Rasterize SVG to PNG (if cairosvg available)
+    6. Fallback to SVG if PNG generation fails
+    """
     if prompt is None:
         prompt = get_illustration_prompt(outline, style)
 
-    # TODO: Call Gemini image generation API
-    # For now, return a cover by rasterizing the template
-    cover_path = workdir / "cover.png"
+    # Load style-specific template (will fallback to generated SVG if not found)
+    template_svg = load_cover_template(style)
 
-    # Try to rasterize the template
-    if rasterize_svg_to_png(svg_template, cover_path):
-        return cover_path
+    # Add text to template
+    template_with_text = _render_text_on_template(template_svg, outline, style)
+
+    # TODO: Generate illustration via Gemini if available
+    # If HAS_GOOGLE_GENAI and os.environ.get("GOOGLE_API_KEY"):
+    #     illustration_path = workdir / "cover-illustration.png"
+    #     if _generate_image_via_gemini(prompt, illustration_path):
+    #         template_with_text = composite_illustration_into_svg(illustration_path, template_with_text)
+
+    # Try to rasterize to PNG
+    png_path = workdir / "cover.png"
+    if rasterize_svg_to_png(template_with_text, png_path):
+        return png_path
 
     # Fallback to SVG
     svg_path = workdir / "cover.svg"
-    atomic_write_text(svg_path, svg_template)
+    atomic_write_text(svg_path, template_with_text)
     return svg_path
+
+
+def _generate_image_via_gemini(prompt: str, output_path: Path) -> bool:
+    """Generate an image via Google Gemini 2.0 API.
+
+    Returns True on success, False on any failure.
+    """
+    if not HAS_GOOGLE_GENAI:
+        logger.warning("google-genai not installed; skipping Gemini image generation")
+        return False
+
+    try:
+        import os
+
+        api_key = os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
+        if not api_key:
+            logger.warning("GOOGLE_API_KEY/GEMINI_API_KEY not set; skipping image generation")
+            return False
+
+        client = genai.Client(api_key=api_key)
+
+        # Call Gemini 2.0 image generation (requires gemini-2.0-flash-001 or later)
+        response = client.models.generate_images(
+            model="gemini-2.0-flash-001",
+            prompt=prompt,
+            config={
+                "candidate_count": 1,
+                "safety_settings": [{"category": "HARM_CATEGORY_UNSPECIFIED", "threshold": "BLOCK_NONE"}],
+                "generation_config": {"width": 1024, "height": 1024},
+            },
+        )
+
+        if response.images:
+            image_data = response.images[0]._image_bytes
+            output_path.write_bytes(image_data)
+            logger.info("Gemini image generated: %s", output_path)
+            return True
+        else:
+            logger.warning("Gemini returned no images for prompt: %r", prompt[:80])
+            return False
+
+    except Exception as e:
+        logger.warning("Gemini image generation failed: %s", e)
+        return False
