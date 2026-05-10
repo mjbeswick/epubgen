@@ -107,3 +107,57 @@ def test_write_svg_cover_writes_file(tmp_path: Path):
     content = p.read_text(encoding="utf-8")
     assert content.startswith("<?xml")
     assert "viewBox" in content
+
+
+def test_get_illustration_prompt_oreilly():
+    from epubgen.cover import get_illustration_prompt
+
+    style = load_style("oreilly")
+    outline = _outline("TSRX in Practice", "Building Production Apps")
+    prompt = get_illustration_prompt(outline, style)
+    assert prompt is not None
+
+
+def test_get_illustration_prompt_manning():
+    from epubgen.cover import get_illustration_prompt
+
+    style = load_style("manning")
+    outline = _outline("Design Patterns", "Software Architecture")
+    prompt = get_illustration_prompt(outline, style)
+    assert prompt is not None
+
+
+def test_load_cover_template_oreilly():
+    from epubgen.cover import load_cover_template
+
+    style = load_style("oreilly")
+    template = load_cover_template(style)
+    assert template is not None
+
+
+def test_load_cover_template_missing_fallback():
+    from epubgen.cover import load_cover_template
+
+    style = load_style("oreilly")
+    template = load_cover_template(style)
+    assert isinstance(template, str)
+
+
+def test_rasterize_svg_to_png():
+    from epubgen.cover import rasterize_svg_to_png
+
+    svg_content = """<?xml version="1.0"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect width="100" height="100" fill="red"/>
+</svg>"""
+    result = rasterize_svg_to_png(svg_content, Path("/tmp/test.png"))
+    assert isinstance(result, bool)
+
+
+def test_create_fallback_svg_cover_returns_valid_svg():
+    from epubgen.cover import create_fallback_svg_cover
+
+    style = load_style("oreilly")
+    outline = _outline("Test Title", "Test Subtitle")
+    svg = create_fallback_svg_cover(outline, style)
+    assert isinstance(svg, str)

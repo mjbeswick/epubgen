@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from xml.sax.saxutils import escape
 
@@ -7,6 +8,8 @@ from epubgen.images import COVER_SIZE, generate_image, is_available
 from epubgen.schema import Outline
 from epubgen.styles import Style
 from epubgen.workdir import atomic_write_text
+
+logger = logging.getLogger(__name__)
 
 PALETTES = {
     "oreilly": ("#003a5d", "#f4ecd8"),
@@ -159,3 +162,31 @@ def existing_cover(workdir: Path) -> Path | None:
         if p.exists():
             return p
     return None
+
+
+def generate_gemini_cover(
+    outline: Outline, style: Style, workdir: Path, prompt: str | None = None
+) -> Path:
+    pass
+
+
+def get_illustration_prompt(outline: Outline, style: Style) -> str:
+    pass
+
+
+def load_cover_template(style: Style) -> str:
+    pass
+
+
+def composite_illustration_into_svg(
+    illustration_path: Path, template_svg: str
+) -> str:
+    pass
+
+
+def create_fallback_svg_cover(outline: Outline, style: Style) -> str:
+    pass
+
+
+def rasterize_svg_to_png(svg_content: str, output_path: Path) -> bool:
+    pass
