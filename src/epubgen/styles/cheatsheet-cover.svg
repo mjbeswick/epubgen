@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 2400" preserveAspectRatio="xMidYMid meet">
+  <rect width="1600" height="2400" fill="#f0f4f3"/>
+  <rect x="0" y="0" width="1600" height="200" fill="#00897b"/>
+  <text x="800" y="130" text-anchor="middle" font-family="'Courier New', monospace" font-size="48" fill="#f0f4f3" font-weight="bold">CHEATSHEET</text>
+  <rect x="0" y="2200" width="1600" height="200" fill="#00897b"/>
+  <!-- Card-based layout suggestion -->
+  <rect x="200" y="300" width="350" height="350" fill="#00897b" opacity="0.1" stroke="#00897b" stroke-width="2"/>
+  <rect x="700" y="300" width="350" height="350" fill="#00897b" opacity="0.1" stroke="#00897b" stroke-width="2"/>
+  <rect x="1200" y="300" width="350" height="350" fill="#00897b" opacity="0.1" stroke="#00897b" stroke-width="2"/>
+  <g id="illustration-area" x="400" y="800" width="800" height="900">
+    <rect x="400" y="800" width="800" height="900" fill="#e0f2f1" opacity="0.5"/>
+    <text x="800" y="1300" text-anchor="middle" font-family="'Courier New', monospace" font-size="28" fill="#00897b" opacity="0.3">Quick Reference</text>
+  </g>
+</svg>

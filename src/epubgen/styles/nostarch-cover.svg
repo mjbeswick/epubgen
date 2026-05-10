@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 2400" preserveAspectRatio="xMidYMid meet">
+  <rect width="1600" height="2400" fill="#fafafa"/>
+  <rect x="0" y="0" width="1600" height="220" fill="#111111"/>
+  <rect x="0" y="2100" width="1600" height="300" fill="#111111"/>
+  <text x="800" y="140" text-anchor="middle" font-family="'Courier New', monospace" font-size="56" fill="#fafafa" font-weight="bold">no starch</text>
+  <text x="800" y="180" text-anchor="middle" font-family="'Courier New', monospace" font-size="24" fill="#fafafa">press</text>
+  <g id="illustration-area" x="288" y="500" width="1024" height="1024">
+    <rect x="288" y="500" width="1024" height="1024" fill="#f0f0f0" opacity="0.6"/>
+    <text x="800" y="1050" text-anchor="middle" font-family="'Courier New', monospace" font-size="28" fill="#111111" opacity="0.4">Illustration</text>
+  </g>
+</svg>
