@@ -23,7 +23,7 @@ from epubgen.styles import list_all_styles, load_style
 from epubgen.workdir import default_workdir, slugify
 
 app = typer.Typer(
-    add_completion=False,
+    add_completion=True,
     help="Generate EPUB books from a topic + style via the Anthropic API.",
     no_args_is_help=False,
 )

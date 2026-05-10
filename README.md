@@ -18,6 +18,7 @@ epubgen wizard
 - **Resumable** — chapters written atomically to `<out>.work/ch-NN.md`; re-running picks up where it left off. `options.json` is frozen on first run; mismatches refuse to resume unless `--force`.
 - **Concurrent** — async chapter generation with a small pool (default 3).
 - **Cover** — Style-matched full-bleed covers (1600×2400px for Kindle) with AI-generated illustrations via Google Gemini. Graceful fallback to SVG if APIs unavailable. Override with `--cover-prompt` or skip with `--no-cover`.
+- **Shell completions** — Bash, Zsh, and Fish completions for all commands, flags, and choices (styles, models, amend operations). Install with `./scripts/install-completions.sh`.
 - **Doctor preflight** — checks every dependency at startup; clear errors instead of mid-pipeline explosions.
 - **Structured logging** — `--verbose` and `--log[--log-file PATH]` capture full traces and per-chapter timings/token usage.
 
