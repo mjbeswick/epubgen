@@ -16,3 +16,7 @@ Conversational, scenario-driven, second-person. The reader is a working develope
 
 ## Length
 Chapters target 3000–5000 words across 5–8 sections.
+
+## Cover Illustration Voice
+
+Clean, minimalist technical diagram or icon representing [TOPIC]. Modern geometric style, high contrast, business-focused. Sans-serif lines, flat design. Suitable for enterprise and technical audiences. High contrast for e-readers. Square composition (~1024×1024).

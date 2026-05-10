@@ -16,3 +16,7 @@ Thorough, precise, neutral. Closer to a manual than a tutorial; the reader may b
 
 ## Length
 Chapters target 3500–5500 words across 6–10 sections.
+
+## Cover Illustration Voice
+
+Precise technical illustration or detailed diagram style, subject: [TOPIC]. Professional, enterprise-focused, authoritative. Sharp lines, high contrast. Could be a circuit diagram, system architecture, or technical schematic. Monochrome or high-saturation colors. Square composition (~1024×1024).

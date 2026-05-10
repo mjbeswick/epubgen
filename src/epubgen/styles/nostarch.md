@@ -16,3 +16,7 @@ Hands-on, build-along, friendly. Each chapter advances a single concrete project
 
 ## Length
 Chapters target 2500–4000 words across 5–8 sections.
+
+## Cover Illustration Voice
+
+Project-driven, hands-on illustration representing [TOPIC] in action. Could be code snippets, tools, building/making metaphor. Colorful, energetic style. Reflects the "build something" spirit of the book. Square composition (~1024×1024).

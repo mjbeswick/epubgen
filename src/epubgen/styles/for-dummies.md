@@ -17,3 +17,7 @@ Friendly, encouraging, second-person. Assume zero prior knowledge of the topic. 
 
 ## Length
 Chapters target 2500–4000 words across 6–10 sections.
+
+## Cover Illustration Voice
+
+Friendly, approachable icon or cartoon-style illustration of [TOPIC]. Non-technical, welcoming, beginner-focused. Bright colors, simple shapes, slightly humorous tone. Zero assumed knowledge conveyed visually. Square composition (~1024×1024).

@@ -164,29 +164,157 @@ def existing_cover(workdir: Path) -> Path | None:
     return None
 
 
-def generate_gemini_cover(
-    outline: Outline, style: Style, workdir: Path, prompt: str | None = None
-) -> Path:
-    pass
-
-
 def get_illustration_prompt(outline: Outline, style: Style) -> str:
-    pass
+    """Generate an illustration prompt based on the outline and style."""
+    # Extract the "## Cover Illustration Voice" section from the style guide
+    style_content = style.guide
+    if "## Cover Illustration Voice" in style_content:
+        start = style_content.index("## Cover Illustration Voice") + len(
+            "## Cover Illustration Voice"
+        )
+        # Find the next ## section or end of file
+        next_section = style_content.find("\n## ", start)
+        if next_section == -1:
+            voice = style_content[start:].strip()
+        else:
+            voice = style_content[start:next_section].strip()
+        # Replace [TOPIC] placeholder with the actual topic
+        voice = voice.replace("[TOPIC]", outline.topic)
+        return voice
+    else:
+        # Fallback: generic prompt if no voice is defined
+        return f"Illustration for a book about {outline.topic}, in professional style"
 
 
 def load_cover_template(style: Style) -> str:
-    pass
+    """Load SVG template for the given style, with fallback."""
+    from importlib.resources import files
+
+    try:
+        # Try to load style-specific template
+        styles_dir = Path(str(files("epubgen") / "styles"))
+        template_path = styles_dir / f"{style.name}-cover.svg"
+        if template_path.exists():
+            return template_path.read_text(encoding="utf-8")
+    except (AttributeError, FileNotFoundError, Exception):
+        pass
+    # Fallback to a simple generated SVG
+    from epubgen.schema import Beat, Chapter
+
+    return _svg_cover(
+        Outline(
+            title="[TITLE]",
+            subtitle="[SUBTITLE]",
+            topic="[TOPIC]",
+            style=style.name,
+            chapters=[
+                Chapter(
+                    number=i,
+                    title=f"Chapter {i}",
+                    synopsis="This is a placeholder chapter.",
+                    beats=[
+                        Beat(summary="First beat"),
+                        Beat(summary="Second beat"),
+                    ],
+                    word_target=1000,
+                )
+                for i in range(1, 4)
+            ],
+        ),
+        style,
+    )
+
+
+def create_fallback_svg_cover(outline: Outline, style: Style) -> str:
+    """Create a fallback SVG cover when illustration generation fails."""
+    return _svg_cover(outline, style)
 
 
 def composite_illustration_into_svg(
     illustration_path: Path, template_svg: str
 ) -> str:
-    pass
+    """Composite a raster illustration into an SVG template.
 
+    For now, this appends the image as a raster element into the template.
+    """
+    if not illustration_path.exists():
+        logger.warning(f"Illustration not found: {illustration_path}")
+        return template_svg
 
-def create_fallback_svg_cover(outline: Outline, style: Style) -> str:
-    pass
+    # Embed the illustration as a base64 PNG in the SVG
+    import base64
+
+    image_data = illustration_path.read_bytes()
+    b64_data = base64.b64encode(image_data).decode("ascii")
+    mime_type = "image/png"
+
+    # Find the illustration placeholder and replace it
+    if '<g id="illustration-area"' in template_svg:
+        # Insert image before the closing </g>
+        image_elem = f'<image href="data:{mime_type};base64,{b64_data}" width="1024" height="1024" x="288" y="588"/>'
+        template_svg = template_svg.replace(
+            '<g id="illustration-area">',
+            f'<g id="illustration-area">{image_elem}',
+        )
+    return template_svg
 
 
 def rasterize_svg_to_png(svg_content: str, output_path: Path) -> bool:
-    pass
+    """Rasterize an SVG string to a PNG file.
+
+    Returns True if successful, False otherwise.
+    """
+    try:
+        import io
+        from PIL import Image
+
+        # Try using cairosvg if available
+        try:
+            import cairosvg
+
+            png_bytes = cairosvg.svg2png(bytestring=svg_content.encode("utf-8"))
+            output_path.write_bytes(png_bytes)
+            return True
+        except ImportError:
+            pass
+
+        # Fallback: use a simple approach with PIL if possible
+        # This is a simplified version that might not handle all SVG features
+        logger.warning(
+            "cairosvg not available; PNG rasterization may produce low-quality results"
+        )
+
+        # For now, return False if cairosvg is not available
+        # (Full SVG-to-PNG conversion requires specialized libs)
+        return False
+    except Exception as e:
+        logger.error(f"Failed to rasterize SVG: {e}")
+        return False
+
+
+def generate_gemini_cover(
+    outline: Outline, style: Style, workdir: Path, prompt: str | None = None
+) -> Path:
+    """Generate a cover illustration via Gemini and composite it into the template.
+
+    Falls back to a simple SVG cover if generation fails.
+    """
+    # Generate illustration via Gemini (would need API integration)
+    # For now, this is a placeholder that returns the SVG template
+    svg_template = load_cover_template(style)
+
+    if prompt is None:
+        prompt = get_illustration_prompt(outline, style)
+
+    # TODO: Call Gemini image generation API
+    # For now, return a cover by rasterizing the template
+    cover_path = workdir / "cover.png"
+
+    # Try to rasterize the template
+    if rasterize_svg_to_png(svg_template, cover_path):
+        return cover_path
+
+    # Fallback to SVG
+    svg_path = workdir / "cover.svg"
+    atomic_write_text(svg_path, svg_template)
+    return svg_path

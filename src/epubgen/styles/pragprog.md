@@ -15,3 +15,7 @@ Direct, opinionated, peer-to-peer. Treat the reader as a working professional ca
 
 ## Length
 Chapters target 2000–3500 words across 4–7 sections. Punchy beats long.
+
+## Cover Illustration Voice
+
+Hand-drawn, slightly quirky and approachable illustration, subject: [TOPIC]. Warm, friendly aesthetic, sketch-like quality. Loose lines, organic shapes. Appeals to developers who prefer personality over formality. Square composition (~1024×1024).
