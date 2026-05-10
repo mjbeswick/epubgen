@@ -158,10 +158,25 @@ def write_svg_cover(outline: Outline, style: Style, workdir: Path) -> Path:
 def generate_cover(
     outline: Outline, style: Style, workdir: Path, prompt: str | None = None
 ) -> Path:
+    """Generate a cover using the new template-based approach with fallbacks.
+
+    1. Try to use style-specific SVG template with Gemini image generation
+    2. Fallback to OpenAI image generation if available
+    3. Fallback to basic SVG cover
+    """
+    # Try the new template-based approach first
+    try:
+        return generate_gemini_cover(outline, style, workdir, prompt=prompt)
+    except Exception as e:
+        logger.warning("template-based cover generation failed: %s; falling back to OpenAI", e)
+
+    # Fallback to OpenAI-based approach
     if prompt is not None and is_available():
         png = workdir / "cover.png"
         if generate_image(prompt, png, size=COVER_SIZE):
             return png
+
+    # Final fallback to basic SVG
     return write_svg_cover(outline, style, workdir)
 
 
@@ -351,11 +366,11 @@ def generate_gemini_cover(
     # Add text to template
     template_with_text = _render_text_on_template(template_svg, outline, style)
 
-    # TODO: Generate illustration via Gemini if available
-    # If HAS_GOOGLE_GENAI and os.environ.get("GOOGLE_API_KEY"):
-    #     illustration_path = workdir / "cover-illustration.png"
-    #     if _generate_image_via_gemini(prompt, illustration_path):
-    #         template_with_text = composite_illustration_into_svg(illustration_path, template_with_text)
+    # Generate illustration via Gemini if available
+    if HAS_GOOGLE_GENAI and __import__("os").environ.get("GOOGLE_API_KEY"):
+        illustration_path = workdir / "cover-illustration.png"
+        if _generate_image_via_gemini(prompt, illustration_path):
+            template_with_text = composite_illustration_into_svg(illustration_path, template_with_text)
 
     # Try to rasterize to PNG
     png_path = workdir / "cover.png"

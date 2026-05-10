@@ -161,3 +161,54 @@ def test_create_fallback_svg_cover_returns_valid_svg():
     outline = _outline("Test Title", "Test Subtitle")
     svg = create_fallback_svg_cover(outline, style)
     assert isinstance(svg, str)
+
+
+def test_render_text_on_template():
+    from epubgen.cover import _render_text_on_template
+
+    style = load_style("oreilly")
+    outline = _outline("Test Book", "A Great Subtitle")
+    template = """<?xml version="1.0"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 2400">
+  <g id="title-area"></g>
+  <g id="illustration-area"></g>
+  <rect y="2200" width="1600" height="200"/>
+</svg>"""
+    result = _render_text_on_template(template, outline, style)
+    assert "Test Book" in result
+    assert "A Great Subtitle" in result
+    assert '<text' in result
+
+
+def test_composite_illustration_into_svg(tmp_path: Path):
+    from epubgen.cover import composite_illustration_into_svg
+
+    # Create a minimal PNG file (8x8 red square)
+    # PNG magic bytes followed by minimal IHDR chunk
+    png_data = (
+        b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x08\x00\x00\x00\x08'
+        b'\x08\x02\x00\x00\x00kwd+\x00\x00\x00\x0cIDATx\x9cc\xf8\x0f\x00\x00\x01'
+        b'\x01\x00\x05\x18r\xda\x00\x00\x00\x00IEND\xaeB`\x82'
+    )
+    img_path = tmp_path / "test_illustration.png"
+    img_path.write_bytes(png_data)
+
+    template = """<?xml version="1.0"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 2400">
+  <g id="illustration-area"></g>
+</svg>"""
+
+    result = composite_illustration_into_svg(img_path, template)
+    assert 'data:image/png;base64,' in result
+    assert '<image href=' in result
+
+
+def test_generate_gemini_cover_fallback(tmp_path: Path):
+    from epubgen.cover import generate_gemini_cover
+
+    style = load_style("oreilly")
+    outline = _outline("Test Book", "Test Subtitle")
+    result = generate_gemini_cover(outline, style, tmp_path)
+    # Without Gemini API key, should fallback to SVG
+    assert result.exists()
+    assert result.suffix in ('.svg', '.png')
