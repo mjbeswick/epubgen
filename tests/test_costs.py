@@ -62,7 +62,7 @@ def test_reset_tally_returns_fresh():
     t2 = reset_tally(model="claude-opus-4-7")
     assert t1 is not t2
     assert t2.images == 0
-    assert t2.model == "claude-opus-4-7"
+    assert t2.model == "anthropic/claude-opus-4-7"  # normalized
 
 
 def test_summary_lines_includes_dollar_total():
@@ -96,4 +96,4 @@ def test_default_model_is_sonnet():
     from epubgen.schema import Options
 
     assert Options(topic="x", out=Path("/tmp/x.epub")).model == "claude-sonnet-4-6"
-    assert Tally().model == "claude-sonnet-4-6"
+    assert Tally().model == "anthropic/claude-sonnet-4-6"

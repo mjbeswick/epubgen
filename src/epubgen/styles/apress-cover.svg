@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 2400" preserveAspectRatio="xMidYMid meet">
+  <rect width="1600" height="2400" fill="#f3f5f9"/>
+  <rect x="0" y="0" width="800" height="400" fill="#1a3a6c"/>
+  <rect x="800" y="0" width="800" height="400" fill="#c8102e"/>
+  <text x="400" y="280" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif" font-size="48" fill="#f3f5f9" font-weight="bold">APRESS</text>
+  <text x="1200" y="280" text-anchor="middle" font-family="'Helvetica Neue', Arial, sans-serif" font-size="36" fill="#f3f5f9">TECH</text>
+  <rect x="0" y="2100" width="1600" height="300" fill="#1a3a6c"/>
+  <g id="illustration-area" x="288" y="550" width="1024" height="1024">
+    <rect x="288" y="550" width="1024" height="1024" fill="#e8ecf2" opacity="0.6"/>
+    <text x="800" y="1100" text-anchor="middle" font-family="Arial, sans-serif" font-size="30" fill="#1a3a6c" opacity="0.4">Illustration</text>
+  </g>
+</svg>

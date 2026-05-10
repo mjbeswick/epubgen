@@ -17,3 +17,7 @@ Telegraphic, dense, zero filler. Reader scans, never reads cover-to-cover. Each 
 
 ## Length
 Chapters target 800–1500 words across 6–12 cards. Brevity is the product.
+
+## Cover Illustration Voice
+
+Telegraphic, scannable visual representing [TOPIC] at a glance. Minimal, card-based or tabular visual metaphor. Quick reference aesthetic. High contrast, typography-forward. Square composition (~1024×1024).

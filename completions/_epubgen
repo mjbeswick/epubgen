@@ -1,0 +1,126 @@
+#compdef epubgen
+# Zsh completion for epubgen
+# Install with: cp completions/_epubgen ~/.oh-my-zsh/custom/completions/
+
+# Define completion for the main epubgen command
+local -a commands
+commands=(
+  'generate:Generate an EPUB book from a topic and style'
+  'wizard:Interactive prompt-driven workflow'
+  'styles:Inspect available style presets'
+  'amend:Modify an existing book'
+  'doctor:Check dependencies and configuration'
+  'resume:Resume an interrupted generation'
+)
+
+# Style choices
+local -a styles
+styles=(
+  'apress:Enterprise-focused style'
+  'cheatsheet:Telegraphic reference style'
+  'for-dummies:Friendly, beginner-focused style'
+  'manning:Scenario-first style'
+  'nostarch:Project-driven style'
+  'pocket-reference:Manual-style reference'
+  'pragprog:Opinionated peer-to-peer style'
+  'oreilly:Pragmatic code-forward style'
+  'academic:Academic style'
+  'penguin-classics:Penguin Classics style'
+)
+
+# Model suggestions
+local -a models
+models=(
+  'anthropic/claude-opus-4-1'
+  'anthropic/claude-sonnet-4-6'
+  'anthropic/claude-haiku-4-5'
+  'openai/gpt-4'
+  'google/gemini-pro'
+  'deepseek/deepseek-chat'
+)
+
+# Amend operations
+local -a amend_ops
+amend_ops=(
+  'rebuild:Re-render figures and reassemble EPUB'
+  'recover:Regenerate the cover'
+  'retitle:Update title and/or subtitle'
+  'remove:Remove a chapter'
+  'reorder:Reorder chapters'
+  'edit:Edit a chapter in $EDITOR'
+  'revise:Have the model revise a chapter'
+)
+
+_arguments \
+  '1: :->cmds' \
+  '--help[Show help message]' \
+  '--install-completion[Install completion for current shell]' \
+  '--show-completion[Show completion for current shell]'
+
+case $state in
+  cmds)
+    _describe 'commands' commands
+    ;;
+esac
+
+# Completion for subcommands
+_epubgen_generate() {
+  _arguments \
+    '-s+[Style preset]:style:('"${styles[@]%:*}"')' \
+    '--style=[Style preset]:style:('"${styles[@]%:*}"')' \
+    '-o+[Output EPUB path]:output:_files' \
+    '--out=[Output EPUB path]:output:_files' \
+    '-w+[Work directory]:workdir:_files -/' \
+    '--workdir=[Work directory]:workdir:_files -/' \
+    '-c+[Target chapter count]:chapters:(6 10 12 16)' \
+    '--chapters=[Target chapter count]:chapters:(6 10 12 16)' \
+    '-W+[Target words per chapter]:words:(2500 3000 3500)' \
+    '--words=[Target words per chapter]:words:(2500 3000 3500)' \
+    '-m+[Model ID]:model:('"${models[@]}"')' \
+    '--model=[Model ID]:model:('"${models[@]}"')' \
+    '--concurrency=[Parallel chapters]:concurrency:(1 2 3 4 5)' \
+    '--ereader[Tune for e-readers (default)]' \
+    '--no-ereader[Tune for tablet/desktop]' \
+    '--no-cover[Skip cover generation]' \
+    '--no-diagrams[Skip all figures]' \
+    '--no-images[Skip only generated images]' \
+    '--cover-prompt=[Custom cover prompt]:prompt:' \
+    '--source=[Reference source]:source:_files' \
+    '--author=[Author name]:author:' \
+    '--refine[Interactively refine title/subtitle]' \
+    '--force[Override options.json mismatch]' \
+    '--dry-run[Print resolved options and exit]' \
+    '-v[Debug logging to stderr]' \
+    '--verbose[Debug logging to stderr]' \
+    '--log[Write log file]' \
+    '--log-file=[Log file path]:file:_files' \
+    '1:topic:'
+}
+
+_epubgen_amend() {
+  _arguments \
+    '1: :->amend_ops'
+
+  case $state in
+    amend_ops)
+      _describe 'amend operations' amend_ops
+      ;;
+  esac
+}
+
+_epubgen_styles() {
+  _arguments '1: :((list:"List all styles" show:"Show a specific style"))'
+}
+
+# Main completion logic
+case "$words[1]" in
+  generate)
+    _epubgen_generate
+    ;;
+  amend)
+    _epubgen_amend
+    ;;
+  styles)
+    _epubgen_styles
+    ;;
+esac

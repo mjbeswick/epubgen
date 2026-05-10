@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 2400" preserveAspectRatio="xMidYMid meet">
+  <rect width="1600" height="2400" fill="#f5f1ec"/>
+  <rect x="0" y="0" width="1600" height="220" fill="#5d4037"/>
+  <text x="800" y="140" text-anchor="middle" font-family="'Courier New', monospace" font-size="52" fill="#f5f1ec" font-weight="bold">POCKET REFERENCE</text>
+  <rect x="0" y="2150" width="1600" height="250" fill="#5d4037"/>
+  <!-- Grid structure for reference aesthetic -->
+  <line x1="200" y1="350" x2="1400" y2="350" stroke="#5d4037" stroke-width="2" opacity="0.2"/>
+  <line x1="200" y1="500" x2="1400" y2="500" stroke="#5d4037" stroke-width="1" opacity="0.15"/>
+  <line x1="200" y1="650" x2="1400" y2="650" stroke="#5d4037" stroke-width="1" opacity="0.15"/>
+  <line x1="200" y1="800" x2="1400" y2="800" stroke="#5d4037" stroke-width="1" opacity="0.15"/>
+  <g id="illustration-area" x="288" y="900" width="1024" height="900">
+    <rect x="288" y="900" width="1024" height="900" fill="#efe9e1" opacity="0.6"/>
+    <text x="800" y="1400" text-anchor="middle" font-family="'Courier New', monospace" font-size="28" fill="#5d4037" opacity="0.3">Reference Material</text>
+  </g>
+</svg>

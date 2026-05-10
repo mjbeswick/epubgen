@@ -17,3 +17,7 @@ Pragmatic, second-person, code-forward. You're writing for an intermediate pract
 
 ## Length
 Chapters target 2500–4000 words across 6–10 sections. The opening problem and closing summary should each be ≤200 words.
+
+## Cover Illustration Voice
+
+Detailed pen engraving style, black ink on white or transparent background. The illustration should be a botanical or animal subject related to [TOPIC], drawn in the style of 19th-century scientific engravings or natural history illustrations. Naturalistic, detailed, elegant line work. High contrast, suitable for monochrome e-readers. Square composition (~1024×1024), centered subject.

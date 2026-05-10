@@ -12,3 +12,4 @@ build/
 *.log
 epubgen-*.log
 .env
+.worktrees/

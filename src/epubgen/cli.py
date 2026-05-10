@@ -23,7 +23,7 @@ from epubgen.styles import list_all_styles, load_style
 from epubgen.workdir import default_workdir, slugify
 
 app = typer.Typer(
-    add_completion=False,
+    add_completion=True,
     help="Generate EPUB books from a topic + style via the Anthropic API.",
     no_args_is_help=False,
 )
@@ -42,6 +42,37 @@ EXIT_OUTLINE = 5
 _PREFLIGHT_SKIP = {"doctor", "styles", "amend"}
 
 
+def _validate_model(model: str) -> str:
+    """Normalize the model id and offer a did-you-mean on typos.
+
+    Unknown ids aren't fatal — OpenRouter accepts arbitrary `vendor/model` tails,
+    and provider catalogs change. We just warn and pass through.
+    """
+    import difflib
+
+    from epubgen.costs import RATES
+    from epubgen.llm import normalize_model
+
+    normalized = normalize_model(model)
+    if normalized in RATES:
+        return normalized
+    # Allow openrouter pass-through for any tail.
+    if normalized.startswith("openrouter/"):
+        return normalized
+    suggestions = difflib.get_close_matches(normalized, list(RATES.keys()), n=3, cutoff=0.5)
+    if suggestions:
+        typer.secho(
+            f"unknown model {model!r} — did you mean: {', '.join(suggestions)}?",
+            fg=typer.colors.YELLOW, err=True,
+        )
+    else:
+        typer.secho(
+            f"unknown model {model!r} (proceeding; will fail at API call if invalid)",
+            fg=typer.colors.YELLOW, err=True,
+        )
+    return normalized
+
+
 def _preflight() -> None:
     checks = run_checks()
     fatal = fatal_checks(checks)
@@ -52,9 +83,36 @@ def _preflight() -> None:
         raise typer.Exit(EXIT_USER)
 
 
+_PROVIDER_KEYS = {
+    "anthropic": ("ANTHROPIC_API_KEY",),
+    "openai": ("OPENAI_API_KEY",),
+    "google": ("GOOGLE_API_KEY", "GEMINI_API_KEY"),
+    "deepseek": ("DEEPSEEK_API_KEY",),
+    "openrouter": ("OPENROUTER_API_KEY",),
+}
+
+
+def _check_provider_key(model: str) -> None:
+    """Fail fast if the chosen model's provider key isn't set."""
+    import os
+
+    from epubgen.llm import provider_of
+
+    provider = provider_of(model)
+    envs = _PROVIDER_KEYS.get(provider, ())
+    if envs and not any(os.environ.get(e) for e in envs):
+        env_list = " or ".join(envs)
+        typer.secho(
+            f"model {model!r} needs {env_list} (none set)",
+            fg=typer.colors.RED, err=True,
+        )
+        raise typer.Exit(EXIT_USER)
+
+
 def _run(opts: Options) -> None:
     log = get_logger("cli")
     log.debug("resolved options: %s", opts.model_dump_json())
+    _check_provider_key(opts.model)
     try:
         out = pipeline.run(opts)
         typer.secho(f"✓ wrote {out}", fg=typer.colors.GREEN, err=True)
@@ -168,6 +226,7 @@ def generate(
 
     if model is None:
         model = userprefs.get_default_model()
+    model = _validate_model(model)
     out_path = out or Path(f"./{slugify(topic)}.epub")
     preferred_title = None
     preferred_subtitle = None
@@ -208,6 +267,14 @@ def generate(
     if dry_run:
         typer.echo(opts.model_dump_json(indent=2))
         return
+    # Up-front cost hint so spend isn't a surprise post-run.
+    from epubgen.costs import estimate_book_cost
+
+    est = estimate_book_cost(opts.model, chapters=opts.chapters or 12)
+    typer.secho(
+        f"estimated cost: ~${est:.2f}  (model: {opts.model})",
+        fg=typer.colors.CYAN, err=True,
+    )
     _run(opts)
 
 

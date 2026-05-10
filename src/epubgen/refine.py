@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from epubgen.anthropic_client import create_message
 from epubgen.errors import OutlineError
+from epubgen.llm import create_message
 from epubgen.logsetup import get_logger
 from epubgen.prompts.description import build_description_messages
 from epubgen.prompts.refine import build_refine_messages

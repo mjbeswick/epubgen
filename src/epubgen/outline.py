@@ -6,8 +6,8 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from epubgen.anthropic_client import create_message
 from epubgen.errors import ApiError, OutlineError
+from epubgen.llm import create_message
 from epubgen.logsetup import get_logger
 from epubgen.prompts.outline import build_outline_messages, build_repair_messages
 from epubgen.schema import Options, Outline

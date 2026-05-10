@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 2400" preserveAspectRatio="xMidYMid meet">
+  <!-- Background -->
+  <rect width="1600" height="2400" fill="#fbeef0"/>
+
+  <!-- Top decorative header -->
+  <rect x="0" y="0" width="1600" height="200" fill="#a32638"/>
+  <text x="800" y="130" text-anchor="middle" font-family="Georgia, serif" font-size="48" fill="#fbeef0" font-weight="bold">THE PRAGMATIC</text>
+  <text x="800" y="170" text-anchor="middle" font-family="Georgia, serif" font-size="28" fill="#fbeef0">PROGRAMMER</text>
+
+  <!-- Bottom footer -->
+  <rect x="0" y="2200" width="1600" height="200" fill="#a32638"/>
+
+  <!-- Central illustration area -->
+  <g id="illustration-area" x="288" y="588" width="1024" height="1024">
+    <rect x="288" y="588" width="1024" height="1024" fill="#f5d9de" opacity="0.5" rx="20"/>
+    <text x="800" y="1100" text-anchor="middle" font-family="Georgia, serif" font-size="32" fill="#a32638" opacity="0.3">Illustration</text>
+  </g>
+
+  <!-- Decorative flourishes (quirky) -->
+  <circle cx="150" cy="400" r="15" fill="#a32638" opacity="0.3"/>
+  <circle cx="1450" cy="1700" r="20" fill="#a32638" opacity="0.2"/>
+  <line x1="200" y1="500" x2="1400" y2="500" stroke="#a32638" stroke-width="2" opacity="0.2" stroke-dasharray="20,10"/>
+</svg>

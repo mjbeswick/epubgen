@@ -20,11 +20,27 @@ def test_run_checks_returns_expected_names(monkeypatch):
     assert "OPENAI_API_KEY" in names
 
 
-def test_missing_anthropic_key_is_fatal(monkeypatch):
-    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+def test_missing_all_provider_keys_is_fatal(monkeypatch):
+    for env in (
+        "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GOOGLE_API_KEY",
+        "GEMINI_API_KEY", "DEEPSEEK_API_KEY", "OPENROUTER_API_KEY",
+    ):
+        monkeypatch.delenv(env, raising=False)
     checks = run_checks()
     fatal = fatal_checks(checks)
-    assert any(c.name == "ANTHROPIC_API_KEY" and c.status == FAIL for c in fatal)
+    assert any(c.status == FAIL for c in fatal)
+
+
+def test_alt_provider_key_satisfies(monkeypatch):
+    """If OpenAI key is set but Anthropic is missing, that's fine — not fatal."""
+    for env in (
+        "ANTHROPIC_API_KEY", "GOOGLE_API_KEY", "GEMINI_API_KEY",
+        "DEEPSEEK_API_KEY", "OPENROUTER_API_KEY",
+    ):
+        monkeypatch.delenv(env, raising=False)
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    checks = run_checks()
+    assert not fatal_checks(checks)
 
 
 def test_missing_kindlepreviewer_is_warn_not_fatal(monkeypatch):
